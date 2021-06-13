@@ -197,11 +197,39 @@ verify1(Env, let(X, T, E1, E2), Tret) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
+
 %% expand(+Ei, -Eo)
 %% Remplace un élement de sucre syntaxique dans Ei, donnant Eo.
 %% Ne renvoie jamais un Eo égal à Ei.
 expand(MV, _) :- var(MV), !, fail.
 expand((T1 -> T2), arw(X, T1, T2)) :- genatom('dummy_', X).
+
+expand(fun(A,B,C),fun(A,EB,EC)) :- expand(B,EB),expand(C,EC).
+expand(app(A,B),app(EA,EB)) :- expand(A,EA), expand(B,EB).
+
+expand(forall(A,B),arw(A,type,EB)) :- expand(B,EB).
+expand(forall(A,B,C),arw(A,EB,EC)) :- expand(B,EB),expand(C,EC).
+
+expand(arw(A,B,C),arw(A,EB,EC)) :- expand(B,EB),expand(C,EC); (B = _ -> EB = type, expand(C,EC); false).
+
+
+expand(let(A,B,C,D),let(A,EB,EC,ED)) :- expand(B,EB), expand(C,EC), expand(D,ED).
+
+% let sucre syntaxique
+% NA: nom de variable, EF: Evaluated Function, EC: Evaluated corps, ET: Evaluated Type
+expand(let([(X=E)|[]],C),let(NA,ET,EF,EC)) :-
+                        expand(C,EC),
+                        (X = (X1:T) -> X1 =.. NA, expand(T,ET),convertfun1(NA,E,ET,EF);
+                         X =.. [NA|Args], convertfun(Args,E,EF)).
+
+
+
+convertfun([(X:T)|[]],E,fun(X,T,EF)) :- expand(E,EF) ; EF = E.
+convertfun([(X : T)|XS],E,fun(X,T,EF)) :- convertfun(XS,E,EF).
+
+% Faut gérer quand  la fonction "F" n'est pas écrit sous la form de "fun(X,Y)".
+% Faut gérer quand on retourne aussi une fonction.
+convertfun1(A,F,arw(A,T,XS),fun(A,T,EXS)) :- (F = fun(X,Y) -> XS = arw(Q,W,E), EXS = fun(X,W,Y) ; fail ).
 %% !!!À COMPLÉTER!!!
 
 
@@ -281,8 +309,7 @@ sample(1 + 2).
 sample(1 / 2).
 sample(cons(13,nil)).
 sample(cons(1.0, cons(2.0, nil))).
-sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],
-           fact(44))).
+sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],fact(44))).
 sample(let([fact(n) : (int -> int) = if(n < 2, 1, n * fact(n - 1))],
            fact(45))).
 sample(let([list1 : forall(a, (a -> list(a, 1))) = fun(x, cons(x, nil))],
