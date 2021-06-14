@@ -7,9 +7,9 @@ genatom(X, A) :-
     -> new_atom(X, A);
     gensym(X, A).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Description de la syntaxe des termes %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Description de la syntaxe des termes %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% wf(+E)
 %% Vérifie que E est une expression syntaxiquement correcte.
@@ -52,9 +52,9 @@ wf_args([]).
 wf_args([X:T|Args]) :- wf_args(Args), identifier(X), wf(T).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Manipulation du langage interne %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Manipulation du langage interne %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Occasionnellement pendant l'inférence de types, il se peut qu'une
 %% métavariable apparaisse dans un terme du langage interne.  Donc les
@@ -191,12 +191,9 @@ verify1(Env, let(X, T, E1, E2), Tret) :-
     verify(Env1, E1, T),
     verify1(Env1, E2, Tret).
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Élaboration du langage surface vers le langage interne %%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Élaboration du langage surface vers le langage interne %%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% expand(+Ei, -Eo)
 %% Remplace un élement de sucre syntaxique dans Ei, donnant Eo.
@@ -205,48 +202,74 @@ expand(MV, _) :- var(MV), !, fail.
 
 expand((T1 -> T2), arw(X, T1, T2)) :- genatom('dummy_', X).
 
-
-
-%expand(fun(A,B,C),fun(A,B,EC)) :- expand(C,EC).
-%expand(app(A,B),app(EA,EB)) :- expand(A,EA), expand(B,EB).
-
-expand(forall(A,B),arw(A,type,EB)) :- expand(B,EB).
-expand(forall(A,B,C),arw(A,EB,EC)) :- expand(B,EB),expand(C,EC).
-
-%expand(arw(A,B,C),arw(A,EB,EC)) :- expand(B,EB),expand(C,EC); (B = _ -> EB = type, expand(C,EC); false).
-
-expand(let(A,B,C),let(A,ET,B,EC)) :- expand(C,EC), B =.. [_|Args], extracttype(Args,TT), TT=..Args1, convertype(Args1,ET).
-
-%expand(let(A,B,C,D),let(A,EB,EC,ED)) :- expand(B,EB), expand(C,EC), expand(D,ED).
-
-% let sucre syntaxique
-% NA: nom de variable, EF: Evaluated Function, EC: Evaluated corps, ET: Evaluated Type
-expand(let([X=E|[]],C),let(NA,ET,EF,EC)) :-
-                        expand(C,EC),
-                        (X = (X1 : T) -> NA = X1, expand(T,ET),convertfun1(NA,E,ET,EF);
-                         X =.. [NA|Args], convertfun(Args,E,EF),EF=..[_|Args],extracttype(Args,TT), TT =..Args1, convertype(Args1,ET)).
-
-%expand(let([X|XS],C),let(NA,EF,))
-expand(X,A) :- X =.. [F|Args], append([F],Args,EF), convertapp(EF,A).
-
-convertapp([X|[XS|[]]],app(X,XS)).
-convertapp(X,app(EA,EX)) :- last(X,EX),append(TA,[EX],X),convertapp(TA,EA).
-
-
-convertfun([(X:T)|[]],E,fun(X,T,EF)) :- expand(E,EF) ; EF = E.
-convertfun([(X : T)|XS],E,fun(X,T,EF)) :- convertfun(XS,E,EF).
-
-% Faut gérer quand  la fonction "F" n'est pas écrit sous la form de "fun(X,Y)".
-% Faut gérer quand on retourne aussi une fonction.
-convertfun1(A,F,arw(_,T,XS),fun(A,T,EXS)) :-
-                            (F = fun(X,Y) -> XS = arw(Q,W,E) , EXS = fun(X,W,Y) ;
-                                XS = arw(Q,W,E), EXS = fun(F,W,E)).
-
-% Extract type for let. Ex: fun(x,int,fun(y,int,x+y)) => (int->int)
-extracttype([_|[T|[F|[]]]],(T-> (ET))) :- F =.. [_|[_|[B|[C|[]]]]], (C = fun(_,_,_) -> F =.. [_|Args], extracttype(Args,ET); ET = B).
-
-% Convert arrow notation. Ex: (E1->E2->E3) => arw(_,E1,arw(_,E2,E3))
-convertype([_|[T|[F|[]]]],arw(X,T,EF)) :- genatom("dummy_",X), F =.. [FF|Args], (Args = [] -> EF = FF; F =.. TF, convertype(TF,EF)).
+% %expand(fun(A,B,C),fun(A,B,EC)) :- expand(C,EC).
+% %expand(app(A,B),app(EA,EB)) :- expand(A,EA), expand(B,EB).
+% 
+% expand(forall(A,B),arw(A,type,EB)) :- expand(B,EB).
+% expand(forall(A,B,C),arw(A,EB,EC)) :- expand(B,EB),expand(C,EC).
+% 
+% % expand(arw(A,B,C),arw(A,EB,EC)) :-
+% %     expand(B,EB),expand(C,EC);
+% %     (B = _ -> EB = type, expand(C,EC); false).
+% 
+% expand(let(A,B,C),let(A,ET,B,EC)) :-
+%     expand(C,EC), B =.. [_|Args],
+%     extracttype(Args,TT),
+%     TT=..Args1,
+%     convertype(Args1,ET).
+% 
+% % expand(let(A,B,C,D), let(A,EB,EC,ED)) :-
+% %     expand(B,EB),
+% %     expand(C,EC),
+% %     expand(D,ED).
+% 
+% % let sucre syntaxique
+% % NA: nom de variable, EF: Evaluated Function, EC: Evaluated corps, ET: Evaluated Type
+% expand(let([X=E|[]], C), let(NA,ET,EF,EC)) :-
+%     expand(C,EC),
+%     (X = (X1 : T) ->
+%         NA = X1,
+%         expand(T,ET),convertfun1(NA,E,ET,EF);
+%         X =.. [NA|Args],
+%         convertfun(Args,E,EF),
+%         EF=..[_|Args],
+%         extracttype(Args,TT),
+%         TT =..Args1,
+%         convertype(Args1,ET)).
+% 
+% %expand(let([X|XS],C),let(NA,EF,))
+% expand(X,A) :- X =.. [F|Args], append([F],Args,EF), convertapp(EF,A).
+% 
+% convertapp([X|[XS|[]]],app(X,XS)).
+% convertapp(X,app(EA,EX)) :- last(X,EX),append(TA,[EX],X),convertapp(TA,EA).
+% 
+% 
+% convertfun([(X:T)|[]],E,fun(X,T,EF)) :- expand(E,EF) ; EF = E.
+% convertfun([(X : T)|XS],E,fun(X,T,EF)) :- convertfun(XS,E,EF).
+% 
+% % Faut gérer quand  la fonction "F" n'est pas écrit sous la form de "fun(X,Y)".
+% % Faut gérer quand on retourne aussi une fonction.
+% convertfun1(A,F,arw(_,T,XS),fun(A,T,EXS)) :-
+%     (F = fun(X,Y) -> XS = arw(Q,W,E),
+%     EXS = fun(X,W,Y);
+%     XS = arw(Q,W,E),
+%     EXS = fun(F,W,E)).
+% 
+% % Extract type for let. Ex: fun(x,int,fun(y,int,x+y)) => (int->int)
+% extracttype([_|[T|[F|[]]]], (T-> (ET))) :-
+%     F =.. [_|[_|[B|[C|[]]]]],
+%     (C = fun(_,_,_) ->
+%         F =.. [_|Args],
+%         extracttype(Args,ET); ET = B).
+% 
+% % Convert arrow notation. Ex: (E1->E2->E3) => arw(_,E1,arw(_,E2,E3))
+% convertype([_|[T|[F|[]]]],arw(X,T,EF)) :-
+%     genatom("dummy_",X),
+%     F =.. [FF|Args],
+%     (Args = [] ->
+%         EF = FF;
+%         F =.. TF,
+%         convertype(TF,EF)).
 
 %% !!!À COMPLÉTER!!!
 
@@ -267,7 +290,13 @@ infer(_, MV, MV, _) :- var(MV), !.            %Une expression encore inconnue.
 infer(Env, Ei, Eo, T) :- expand(Ei, Ei1), infer(Env, Ei1, Eo, T).
 infer(_, X, X, int) :- integer(X).
 infer(_, X, X, float) :- float(X).
-infer(Env, (Ei : T), Eo, T1) :- check(Env, T, type, T1), check(Env, Ei, T1, Eo).
+infer(Env, (Ei : T), Eo, T1) :-
+    check(Env, T, type, T1),
+    check(Env, Ei, T1, Eo).
+infer(Env, T1, type, type) :- member((T1 : type), Env).
+infer(Env, arw(X, T1, T2), arw(X, T1, T2), type) :-
+    check(Env, T1, type, _),
+    check([(X : T1) | Env], T2, type, _).
 %% !!!À COMPLÉTER!!!
 
 
@@ -289,9 +318,9 @@ check(Env, Ei, T, Eo) :-
     (coerce(Env, Eo1, T1, T, Eo) -> true).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Environnement initial et tests %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Environnement initial et tests %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 elaborate_env(Env, [], Env).
@@ -304,12 +333,12 @@ elaborate_env(Env, [X:Ti|Envi], Envo) :-
 initenv(Env) :-
     elaborate_env(
         [type : type],
-        [int :  type,
-         float :  type,
-         bool :  type,
+        [int : type,
+         float : type,
+         bool : type,
          int_to_float : (int -> float),
          int_to_bool : (int -> bool),
-         list : (type -> int -> type),
+         list : (type -> int -> type), % Test fails here
          (+) : (int -> int -> int),
          (-) : (int -> int -> int),
          (*) : (int -> int -> int),
