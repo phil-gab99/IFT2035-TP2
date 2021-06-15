@@ -203,6 +203,7 @@ verify1(Env, let(X, T, E1, E2), Tret) :-
 %% Ne renvoie jamais un Eo égal à Ei.
 expand(MV, _) :- var(MV), !, fail.
 
+<<<<<<< HEAD
 expand((T1a -> T2a), arw(X, T1b, T2b)) :-
     genatom('dummy_', X),
     currArw(T1a, T1b),
@@ -235,6 +236,21 @@ currArw(T, T).
 %  expand(arw(A,B,C),arw(A,EB,EC)) :-
 %      expand(B,EB),expand(C,EC);
 %      (B = _ -> EB = type, expand(C,EC); false).
+=======
+expand((T1 -> T2), arw(X, T1, ET2)) :- genatom('dummy_', X),
+                                        T2=..ST2,
+                                        length(ST2,Len),
+                                        (Len = 3, \+ member(list,ST2) -> convertype(ST2,ET2); ET2 = T2).
+
+ expand(forall([X|XS],B),arw(X,type,EB)) :- expand(forall(XS,B),EB).
+ expand(forall(A,B),arw(A,type,EB)) :- (B=list(_,_) -> EB = B; expand(B,EB)).
+ 
+ expand(forall(A,B,C),arw(A,EB,EC)) :- expand(B,EB),expand(C,EC).
+
+ expand(arw(A,B,C),arw(A,EB,EC)) :-
+     expand(B,EB),expand(C,EC);
+     (B = _ -> EB = type, expand(C,EC); false).
+>>>>>>> 46560017c307819dc3d1e70b4a160baaab7cc392
 
  expand(let(A,B,C),let(A,ET,B,EC)) :-
      expand(C,EC), B =.. [_|Args],
@@ -250,7 +266,11 @@ currArw(T, T).
         convertlet(X,NA,ET,EF),
         expand(let(XS,C),EC).
 
+<<<<<<< HEAD
  % expand(X,A) :- X =.. [F|Args], append([F],Args,EF), convertapp(EF,A).
+=======
+ %expand(X,A) :- X =.. [F|Args], append([F],Args,EF), convertapp(EF,A).
+>>>>>>> 46560017c307819dc3d1e70b4a160baaab7cc392
 
  convertapp([X|[XS|[]]],app(X,XS)).
  convertapp(X,app(EA,EX)) :- last(X,EX),append(TA,[EX],X),convertapp(TA,EA).
@@ -298,6 +318,10 @@ currArw(T, T).
                  extracttype(Args1,TT),
                  TT =..Args2,
                  convertype(Args2,ET)).
+<<<<<<< HEAD
+=======
+
+>>>>>>> 46560017c307819dc3d1e70b4a160baaab7cc392
 
 %% !!!À COMPLÉTER!!!
 
