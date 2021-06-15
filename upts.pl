@@ -118,17 +118,20 @@ apply(_,   app(-, N1), N2, N) :- integer(N1), integer(N2), N is N1 - N2.
 normalize(_, MV, Eo) :- var(MV), !, Eo = MV.
 normalize(_, V, V) :- (integer(V); float(V); identifier(V)).
 normalize(Env, fun(X, T, B), fun(X, Tn, Bn)) :-
-    normalize([X:T|Env], T, Tn), normalize([X:T|Env], B, Bn).
+    normalize([X:T|Env], T, Tn),
+    normalize([X:T|Env], B, Bn).
 normalize(Env, arw(X, T, B), arw(X, Tn, Bn)) :-
-    normalize([X:T|Env], T, Tn), normalize([X:T|Env], B, Bn).
+    normalize([X:T|Env], T, Tn),
+    normalize([X:T|Env], B, Bn).
 normalize(Env, forall(X, T, B), forall(X, Tn, Bn)) :-
-    normalize([X:T|Env], T, Tn), normalize([X:T|Env], B, Bn).
+    normalize([X:T|Env], T, Tn),
+    normalize([X:T|Env], B, Bn).
 normalize(Env, app(E1, E2), En) :-
     normalize(Env, E1, E1n),
     normalize(Env, E2, E2n),
     (apply(Env, E1n, E2n, E) ->
-         normalize(Env, E, En);
-     En = app(E1n, E2n)).
+        normalize(Env, E, En);
+        En = app(E1n, E2n)).
 
 %% equal(+Env, +T1, +T2)
 %% Vérifie que deux expressions sont égales.
@@ -307,8 +310,7 @@ coerce(Env, E, T1, T2, E) :-
     normalize(Env, T2, T2n),
     T1n = T2n.        %T1 = T2: rien à faire!
 
-% coerce(Env, list(T, N), type, T2, list) :-
-%     expand(, T2)
+% coerce(_, list(_, _), type, (type -> int -> type), list).
 %% !!!À COMPLÉTER!!!
 
 
@@ -322,8 +324,10 @@ infer(Env, (Ei : T), Eo, T1) :-
     check(Env, T, type, T1),
     check(Env, Ei, T1, Eo).
 
-% coerce(Env, T1, type, ),
 infer(Env, T1, type, type) :- member((T1 : type), Env).
+    % coerce(Env, T1, type, Ta, T2),
+    % infer(),
+    % member((T2 : Tb), Env).
 infer(Env, arw(X, T1, T2), arw(X, T1, T2), type) :-
     check(Env, T1, type, _),
     check([(X : T1) | Env], T2, type, _).
