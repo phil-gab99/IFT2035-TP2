@@ -223,7 +223,7 @@ currArw(T, T).
 %     T2=..ST2,
 %     length(ST2,Len),
 %     (Len = 3, \+ member(list,ST2) -> convertype(ST2,ET2); ET2 = T2).
-
+%
 %  expand(forall([X|XS],B),arw(X,type,EB)) :- expand(forall(XS,B),EB).
 %  expand(forall(A,B),arw(A,type,EB)) :- expand(B,EB).
 % 
@@ -307,8 +307,8 @@ coerce(Env, E, T1, T2, E) :-
     normalize(Env, T2, T2n),
     T1n = T2n.        %T1 = T2: rien à faire!
 
-coerce(Env, list(T, N), type, T2, list) :-
-    expand(, T2)
+% coerce(Env, list(T, N), type, T2, list) :-
+%     expand(, T2)
 %% !!!À COMPLÉTER!!!
 
 
@@ -322,7 +322,8 @@ infer(Env, (Ei : T), Eo, T1) :-
     check(Env, T, type, T1),
     check(Env, Ei, T1, Eo).
 
-infer(Env, T1, type, type) :- coerce(Env, T1, type, ), member((T1 : type), Env).
+% coerce(Env, T1, type, ),
+infer(Env, T1, type, type) :- member((T1 : type), Env).
 infer(Env, arw(X, T1, T2), arw(X, T1, T2), type) :-
     check(Env, T1, type, _),
     check([(X : T1) | Env], T2, type, _).
