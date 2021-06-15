@@ -298,6 +298,9 @@ coerce(Env, E, T1, T2, E) :-
     normalize(Env, T1, T1n),
     normalize(Env, T2, T2n),
     T1n = T2n.        %T1 = T2: rien à faire!
+
+coerce(Env, list(T, N), type, T2, list) :-
+    expand(, T2)
 %% !!!À COMPLÉTER!!!
 
 
@@ -311,7 +314,7 @@ infer(Env, (Ei : T), Eo, T1) :-
     check(Env, T, type, T1),
     check(Env, Ei, T1, Eo).
 
-infer(Env, T1, type, type) :- member((T1 : type), Env).
+infer(Env, T1, type, type) :- coerce(Env, T1, type, ), member((T1 : type), Env).
 infer(Env, arw(X, T1, T2), arw(X, T1, T2), type) :-
     check(Env, T1, type, _),
     check([(X : T1) | Env], T2, type, _).
@@ -369,6 +372,20 @@ initenv(Env) :-
                        (t -> list(t, n) ->
                             list(t, n + 1)))],
         Env).
+% check([
+%     if:arw(t, type, arw(dummy_301, bool, arw(dummy_302, t, arw(dummy_303, t, t)))),
+%     (<):arw(dummy_183, float, arw(dummy_184, float, int)),
+%     (/):arw(dummy_181, float, arw(dummy_182, float, float)),
+%     (*):arw(dummy_179, int, arw(dummy_180, int, int)),
+%     (-):arw(dummy_177, int, arw(dummy_178, int, int)),
+%     (+):arw(dummy_175, int, arw(dummy_176, int, int)),
+%     list:arw(dummy_173, type, arw(dummy_174, int, type)),
+%     int_to_bool:arw(dummy_172, int, bool),
+%     int_to_float:arw(dummy_171, int, float),
+%     bool:type, float:type, int:type, type:type
+% ], forall(t, list(t, 0)), type, X).
+
+% nil:arw(t, type, arw(dummy, t, list(t, 0)))
 
 %% Quelques expressions pour nos tests.
 sample(1 + 2).
