@@ -36,8 +36,9 @@ wf(X) :- var(X).    %Une métavariable, utilisée pendant l'inférence de type.
 
 %% identifier(+X)
 %% Vérifie que X est un identificateur valide.
-identifier(X) :- atom(X),
-                 \+ member(X, [fun, app, arw, forall, (->), (:), let, [], (.)]).
+identifier(X) :-
+    atom(X),
+    \+ member(X, [fun, app, arw, forall, (->), (:), let, [], (.)]).
 
 wf_exps([]).
 wf_exps([E|Es]) :- wf(E), wf_exps(Es).
@@ -205,6 +206,9 @@ expand((T1a -> T2a), arw(X, T1b, T2b)) :-
     currArw(T1a, T1b),
     currArw(T2a, T2b).
 
+expand(forall(T, T1), arw(T, type, T2)) :-
+    currArw(T1, T2).
+
 %% currArw (+T1, -T2)
 %% S'occupe de convertir un type arrow de langage surface de longueur
 %% indéterminée à l'aide de la structure arw du langage interne
@@ -306,10 +310,12 @@ infer(_, X, X, float) :- float(X).
 infer(Env, (Ei : T), Eo, T1) :-
     check(Env, T, type, T1),
     check(Env, Ei, T1, Eo).
+
 infer(Env, T1, type, type) :- member((T1 : type), Env).
 infer(Env, arw(X, T1, T2), arw(X, T1, T2), type) :-
     check(Env, T1, type, _),
     check([(X : T1) | Env], T2, type, _).
+% infer(Env, forall(X, T), forall(X, T), type) :-
 %% !!!À COMPLÉTER!!!
 
 
@@ -357,8 +363,8 @@ initenv(Env) :-
          (*) : (int -> int -> int),
          (/) : (float -> float -> float),
          (<) : (float -> float -> int),
-         if : forall(t, (bool -> t -> t -> t)), % Test fails here
-         nil :  forall(t, list(t, 0)),
+         if : forall(t, (bool -> t -> t -> t)), 
+         nil :  forall(t, list(t, 0)), % Test fails here
          cons : forall([t,n],
                        (t -> list(t, n) ->
                             list(t, n + 1)))],
