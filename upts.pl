@@ -235,69 +235,69 @@ currArw(T, T).
 %  expand(arw(A,B,C),arw(A,EB,EC)) :-
 %      expand(B,EB),expand(C,EC);
 %      (B = _ -> EB = type, expand(C,EC); false).
-% 
-%  expand(let(A,B,C),let(A,ET,B,EC)) :-
-%      expand(C,EC), B =.. [_|Args],
-%      extracttype(Args,TT),
-%      expand(TT,ET).
-% 
-% % % let sucre syntaxique
-% % % NA: nom de variable, EF: Evaluated Function, EC: Evaluated corps, ET: Evaluated Type
-%  expand(let([X|[]], C), let(NA,ET,EF,EC)) :-
-%     convertlet(X,NA,ET,EF), expand(C,EC).
-% 
-%  expand(let([X|XS],C),let(NA,ET,EF,EC)) :-
-%         convertlet(X,NA,ET,EF),
-%         expand(let(XS,C),EC).
-% 
-%  expand(X,A) :- X =.. [F|Args], append([F],Args,EF), convertapp(EF,A).
-% 
-%  convertapp([X|[XS|[]]],app(X,XS)).
-%  convertapp(X,app(EA,EX)) :- last(X,EX),append(TA,[EX],X),convertapp(TA,EA).
-% 
-% 
-%  convertfun([(X:T)|[]],E,fun(X,T,EF)) :- expand(E,EF) ; EF = E.
-%  convertfun([(X : T)|XS],E,fun(X,T,EF)) :- convertfun(XS,E,EF).
-% 
-% % Faut gérer le cas où on a plusieurs paramètres implicites.
-%  convertfun1(A,F,arw(_,T,XS),fun(EA,T,EXS)) :-
-%         XS = arw(_,T1,T2), 
-%         (F = fun(X,Y) -> EA = A,EXS = fun(X,T1,T2); A=..[EA|[Arg|[]]], EXS = fun(Arg,T1,T2)).
-% 
-%  % Extract type for let. Ex: fun(x,int,fun(y,int,x+y)) => (int->int)
-%  % Take advantage of list decomposition in Prolog.
-%  % fun(x,int,fun(y,int,x+y)) => [fun,x, int, fun(y,int,x+y)].
-%  extracttype([_|[T|[F|[]]]], (T-> (ET))) :-
-%      F =.. [_|[_|[B|[C|[]]]]],
-%      (C = fun(_,_,_) ->
-%          F =.. [_|Args],
-%          extracttype(Args,ET); ET = B).
-% 
-% %  Convert arrow notation. Ex: (E1->E2->E3) => arw(_,E1,arw(_,E2,E3))
-% %  Take advantage of list decompisition
-% %  (E1 -> E2 -> E3) => [->, E1,(E2->E3)].
-% %  (E1 -> E2) => [->,E1,E2].
-% %  Doesn't decompose "list(E1,E2)"
-%  convertype([_|[T|[F|[]]]],arw(X,T,EF)) :-
-%      genatom("dummy_",X),
-%      F =.. [FF|Args],
-%      (Args = [] ->
-%          EF = FF;
-%          FF = list -> EF = F;
-%                       F =.. TF,
-%                      convertype(TF,EF)).
-% 
-% % Helper method to construct `let`
-%  convertlet(X=E,NA,ET,EF) :-
-%           (X = (X1 : T) ->
-%                  NA = X1,
-%                  expand(T,ET),convertfun1(NA,E,ET,EF);
-%                  X =.. [NA|Args],
-%                  convertfun(Args,E,EF),
-%                  EF=..[_|Args1],
-%                  extracttype(Args1,TT),
-%                  TT =..Args2,
-%                  convertype(Args2,ET)).
+
+ expand(let(A,B,C),let(A,ET,B,EC)) :-
+     expand(C,EC), B =.. [_|Args],
+     extracttype(Args,TT),
+     expand(TT,ET).
+
+% % let sucre syntaxique
+% % NA: nom de variable, EF: Evaluated Function, EC: Evaluated corps, ET: Evaluated Type
+ expand(let([X|[]], C), let(NA,ET,EF,EC)) :-
+    convertlet(X,NA,ET,EF), expand(C,EC).
+
+ expand(let([X|XS],C),let(NA,ET,EF,EC)) :-
+        convertlet(X,NA,ET,EF),
+        expand(let(XS,C),EC).
+
+ % expand(X,A) :- X =.. [F|Args], append([F],Args,EF), convertapp(EF,A).
+
+ convertapp([X|[XS|[]]],app(X,XS)).
+ convertapp(X,app(EA,EX)) :- last(X,EX),append(TA,[EX],X),convertapp(TA,EA).
+
+
+ convertfun([(X:T)|[]],E,fun(X,T,EF)) :- expand(E,EF) ; EF = E.
+ convertfun([(X : T)|XS],E,fun(X,T,EF)) :- convertfun(XS,E,EF).
+
+% Faut gérer le cas où on a plusieurs paramètres implicites.
+ convertfun1(A,F,arw(_,T,XS),fun(EA,T,EXS)) :-
+        XS = arw(_,T1,T2), 
+        (F = fun(X,Y) -> EA = A,EXS = fun(X,T1,T2); A=..[EA|[Arg|[]]], EXS = fun(Arg,T1,T2)).
+
+ % Extract type for let. Ex: fun(x,int,fun(y,int,x+y)) => (int->int)
+ % Take advantage of list decomposition in Prolog.
+ % fun(x,int,fun(y,int,x+y)) => [fun,x, int, fun(y,int,x+y)].
+ extracttype([_|[T|[F|[]]]], (T-> (ET))) :-
+     F =.. [_|[_|[B|[C|[]]]]],
+     (C = fun(_,_,_) ->
+         F =.. [_|Args],
+         extracttype(Args,ET); ET = B).
+
+%  Convert arrow notation. Ex: (E1->E2->E3) => arw(_,E1,arw(_,E2,E3))
+%  Take advantage of list decompisition
+%  (E1 -> E2 -> E3) => [->, E1,(E2->E3)].
+%  (E1 -> E2) => [->,E1,E2].
+%  Doesn't decompose "list(E1,E2)"
+ convertype([_|[T|[F|[]]]],arw(X,T,EF)) :-
+     genatom("dummy_",X),
+     F =.. [FF|Args],
+     (Args = [] ->
+         EF = FF;
+         FF = list -> EF = F;
+                      F =.. TF,
+                     convertype(TF,EF)).
+
+% Helper method to construct `let`
+ convertlet(X=E,NA,ET,EF) :-
+          (X = (X1 : T) ->
+                 NA = X1,
+                 expand(T,ET),convertfun1(NA,E,ET,EF);
+                 X =.. [NA|Args],
+                 convertfun(Args,E,EF),
+                 EF=..[_|Args1],
+                 extracttype(Args1,TT),
+                 TT =..Args2,
+                 convertype(Args2,ET)).
 
 %% !!!À COMPLÉTER!!!
 
