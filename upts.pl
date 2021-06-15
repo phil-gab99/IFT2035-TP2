@@ -168,7 +168,7 @@ verify(Env, E, T) :-
         (equal(Env, T, T1) -> true;
          write(user_error, not_equal(T, T1)), nl(user_error), fail);
     write(user_error, verify_failure(E)), nl(user_error), fail.
-
+verify1(_, arw(t, type, list(t, 0)), type)
 %% verify1(+Env, +E, -T)
 %% Calcule le type de E dans Env.
 verify1(_, MV, _) :- var(MV), !, fail.
@@ -186,8 +186,10 @@ verify1(Env, app(F, A), T2) :-
     verify(Env, A, T1),
     subst(Env, X, A, T3, T2).
 verify1(Env, arw(X, T1, T2), type) :-
-    verify(Env, T1, type), verify([X:T1|Env], T2, type).
-verify1(Env, forall(X, T1, T2), T) :- verify1(Env, arw(X, T1, T2), T).
+    verify(Env, T1, type),
+    verify([X:T1|Env], T2, type).
+verify1(Env, forall(X, T1, T2), T) :-
+    verify1(Env, arw(X, T1, T2), T).
 verify1(Env, let(X, T, E1, E2), Tret) :-
     verify(Env, T, type),
     Env1 = [X:T|Env],
@@ -208,6 +210,7 @@ expand((T1a -> T2a), arw(X, T1b, T2b)) :-
     currArw(T1a, T1b),
     currArw(T2a, T2b).
 
+% NOTE : Subject to change
 expand(forall(T, T1), arw(T, type, T2)) :-
     currArw(T1, T2).
 
@@ -304,15 +307,14 @@ currArw(T, T).
 
 %% coerce(+Env, +E1, +T1, +T2, -E2)
 %% Transforme l'expression E1 (qui a type T1) en une expression E2 de type T2.
+coerce(_, list(_, _), type, (type -> int -> type), list).
 coerce(Env, E, T1, T2, E) :-
     T1 = T2;
     normalize(Env, T1, T1n),
     normalize(Env, T2, T2n),
     T1n = T2n.        %T1 = T2: rien à faire!
 
-% coerce(_, list(_, _), type, (type -> int -> type), list).
 %% !!!À COMPLÉTER!!!
-
 
 %% infer(+Env, +Ei, -Eo, -T)
 %% Élabore Ei (dans un contexte Env) en Eo et infère son type T.
@@ -324,14 +326,14 @@ infer(Env, (Ei : T), Eo, T1) :-
     check(Env, T, type, T1),
     check(Env, Ei, T1, Eo).
 
-infer(Env, T1, type, type) :- member((T1 : type), Env).
-    % coerce(Env, T1, type, Ta, T2),
-    % infer(),
-    % member((T2 : Tb), Env).
 infer(Env, arw(X, T1, T2), arw(X, T1, T2), type) :-
     check(Env, T1, type, _),
     check([(X : T1) | Env], T2, type, _).
-% infer(Env, forall(X, T), forall(X, T), type) :-
+infer(Env, T1, type, type) :-
+    member((T1 : type), Env);
+    coerce(Env, T1, type, _, T2), % NOTE : Subject to change
+    % infer(Env, Ta, Tb, type),
+    member((T2 : _), Env).
 %% !!!À COMPLÉTER!!!
 
 
