@@ -200,7 +200,20 @@ verify1(Env, let(X, T, E1, E2), Tret) :-
 %% Ne renvoie jamais un Eo égal à Ei.
 expand(MV, _) :- var(MV), !, fail.
 
-expand((T1 -> T2), arw(X, T1, T2)) :- genatom('dummy_', X).
+expand((T1a -> T2a), arw(X, T1b, T2b)) :-
+    genatom('dummy_', X),
+    currArw(T1a, T1b),
+    currArw(T2a, T2b).
+
+%% currArw (+T1, -T2)
+%% S'occupe de convertir un type arrow de langage surface de longueur
+%% indéterminée à l'aide de la structure arw du langage interne
+%% Peut renvoyer un T2 égal à T1
+currArw((T1a -> T2a), arw(X, T1b, T2b)) :-
+    genatom('dummy_', X),
+    currArw(T1a, T1b),
+    currArw(T2a, T2b), !.
+currArw(T, T).
 
 % %expand(fun(A,B,C),fun(A,B,EC)) :- expand(C,EC).
 % %expand(app(A,B),app(EA,EB)) :- expand(A,EA), expand(B,EB).
@@ -338,13 +351,13 @@ initenv(Env) :-
          bool : type,
          int_to_float : (int -> float),
          int_to_bool : (int -> bool),
-         list : (type -> int -> type), % Test fails here
+         list : (type -> int -> type),
          (+) : (int -> int -> int),
          (-) : (int -> int -> int),
          (*) : (int -> int -> int),
          (/) : (float -> float -> float),
          (<) : (float -> float -> int),
-         if : forall(t, (bool -> t -> t -> t)),
+         if : forall(t, (bool -> t -> t -> t)), % Test fails here
          nil :  forall(t, list(t, 0)),
          cons : forall([t,n],
                        (t -> list(t, n) ->
