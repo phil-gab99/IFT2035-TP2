@@ -65,7 +65,7 @@ wf_args([X:T|Args]) :- wf_args(Args), identifier(X), wf(T).
 %% boucles sans fin difficiles à déboguer.
 
 %% subst(+Env, +X, +V, +Ei, -Eo)
-%% Remplace X par V dans Ei.  V et Ei sont des expressions du langage interne.
+%% Remplace X par V dans Ei. V et Ei sont des expressions du langage interne.
 %% Les variables qui peuvent apparaître libres dans V (et peuvent aussi
 %% apparaître dans Ei) doivent toutes être incluses dans l'environnement Env.
 %% Cette fonction évite la capture de nom, e.g.
@@ -106,7 +106,7 @@ subst(Env, X, V, app(E1i, E2i), app(E1o, E2o)) :-
 
 
 %% apply(+Env, +F, +Arg, -E)
-%% Les règles d'évaluations primitives.  Env donne le types des variables
+%% Les règles d'évaluations primitives. Env donne le types des variables
 %% libres qui peuvent apparaître.
 apply(Env, fun(X, _, B), Arg, E) :- \+ var(B), subst(Env, X, Arg, B, E).
 apply(_,   app(+, N1), N2, N) :- integer(N1), integer(N2), N is N1 + N2.
@@ -117,7 +117,7 @@ apply(_,   app(-, N1), N2, N) :- integer(N1), integer(N2), N is N1 - N2.
 %% Applique toutes les réductions possibles sur Ei et tous ses sous-termes.
 %% Utilisé pour tester si deux types sont équivalents.
 normalize(_, MV, Eo) :- var(MV), !, Eo = MV.
-normalize(_, V, V) :- (integer(V); float(V); identifier(V)).
+normalize(_, V, V) :- (integer(V); float(V); (V)).
 normalize(Env, fun(X, T, B), fun(X, Tn, Bn)) :-
     normalize([X:T|Env], T, Tn),
     normalize([X:T|Env], B, Bn).
@@ -169,7 +169,9 @@ verify(Env, E, T) :-
         (equal(Env, T, T1) -> true;
          write(user_error, not_equal(T, T1)), nl(user_error), fail);
     write(user_error, verify_failure(E)), nl(user_error), fail.
-
+% forall(t, type, arw(dummy_202, bool, arw(dummy_203, t, arw(dummy_204, t, t)))), X
+% arw(t, type, arw(dummy_202, bool, arw(dummy_203, t, arw(dummy_204, t, t)))), type
+% verify(Env, type, type)
 %% verify1(+Env, +E, -T)
 %% Calcule le type de E dans Env.
 verify1(_, MV, _) :- var(MV), !, fail.
@@ -213,7 +215,8 @@ expand((T1a -> T2a), arw(X, T1b, T2b)) :-
 
 % NOTE : Subject to change
 expand(forall(T, T1), forall(T, type, T2)) :-
-    expand(T1, T2).
+    expand(T1, T2);
+    T1 = T2.
 
 %% currArw (+T1, -T2)
 %% S'occupe de convertir un type arrow de langage surface de longueur
@@ -347,15 +350,19 @@ infer(Env, arw(X, T1, T2), arw(X, T1, T2), type) :-
     check(Env, T1, type, _),
     check([(X : T1) | Env], T2, type, _).
 infer(Env, forall(X, T1, T2), forall(X, T1, T2), type) :-
-    check(Env, T1, type, _),
+    check(Env, T1, type, _), 
     check([(X : T1) | Env], T2, type, _).
 infer(Env, T1, type, type) :-
     member((T1 : type), Env);
-    coerce(Env, T1, type, _, T2), % NOTE : Subject to change
-    % infer(Env, Ta, Tb, type),
-    member((T2 : _), Env).
+    T1 = list(T, N),
+    member((list : arw(X, type, B)), Env),
+    apply(Env, fun(X, type, B), T, arw(Y, int, type)),
+    apply(Env, fun(Y, type, type), N, type).
 %% !!!À COMPLÉTER!!!
 
+% nil:forall(t, type, arw(dummy_170, t, list(t, 0)))
+% list(t, 0) : type
+% list : type -> int -> type
 
 %% check(+Env, +Ei, +T, -Eo)
 %% Élabore Ei (dans un contexte Env) en Eo, en s'assurant que son type soit T.
@@ -419,11 +426,6 @@ initenv(Env) :-
 % ], forall(t, list(t, 0)), type, X).
 
 % check([if:forall(t, type, arw(dummy_301, bool, arw(dummy_302, t, arw(dummy_303, t, t)))), (<):arw(dummy_183, float, arw(dummy_184, float, int)), (/):arw(dummy_181, float, arw(dummy_182, float, float)), (*):arw(dummy_179, int, arw(dummy_180, int, int)), (-):arw(dummy_177, int, arw(dummy_178, int, int)), (+):arw(dummy_175, int, arw(dummy_176, int, int)), list:arw(dummy_173, type, arw(dummy_174, int, type)), int_to_bool:arw(dummy_172, int, bool), int_to_float:arw(dummy_171, int, float), bool:type, float:type, int:type, type:type], forall(t, list(t, 0)), type, X).
-
-% nil:forall(t, type, arw(dummy_170, t, list(t, 0)))
-% nil:arw(dummy_169, type, arw(dummy_170, t, list))
-% list(t, 0) : type
-% list : type -> int -> type
 
 %% Quelques expressions pour nos tests.
 sample(1 + 2).
