@@ -208,28 +208,7 @@ verify1(Env, let(X, T, E1, E2), Tret) :-
 expand(MV, _) :- var(MV), !, fail.
 expand(T1 -> T2, arw(X, T1, T2)) :- genatom('dummy_', X).
 
-% expand((T1a -> T2a), arw(X, T1b, T2b)) :-
-%     genatom('dummy_', X),
-%     currArw(T1a, T1b),
-%     currArw(T2a, T2b).
-
 expand(forall(T, T2), forall(T, type, T2)).
-
-% NOTE : Subject to change
-% expand(forall(T, T1), forall(T, type, T2)) :-
-%     expand(T1, T2);
-%     T1 = T2.
-
-% forall(t, type, (bool -> t -> t -> t)),
-%% currArw (+T1, -T2)
-%% S'occupe de convertir un type arrow de langage surface de longueur
-%% indéterminée à l'aide de la structure arw du langage interne
-%% Peut renvoyer un T2 égal à T1
-currArw((T1a -> T2a), arw(X, T1b, T2b)) :-
-    genatom('dummy_', X),
-    currArw(T1a, T1b),
-    currArw(T2a, T2b), !.
-currArw(T, T).
 
 % expand((T1 -> T2), arw(X, T1, ET2)) :-
 %     genatom('dummy_', X),
