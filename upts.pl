@@ -169,9 +169,8 @@ verify(Env, E, T) :-
         (equal(Env, T, T1) -> true;
          write(user_error, not_equal(T, T1)), nl(user_error), fail);
     write(user_error, verify_failure(E)), nl(user_error), fail.
-% forall(t, type, arw(dummy_202, bool, arw(dummy_203, t, arw(dummy_204, t, t)))), X
-% arw(t, type, arw(dummy_202, bool, arw(dummy_203, t, arw(dummy_204, t, t)))), type
-% verify(Env, type, type)
+
+
 %% verify1(+Env, +E, -T)
 %% Calcule le type de E dans Env.
 verify1(_, MV, _) :- var(MV), !, fail.
@@ -207,17 +206,21 @@ verify1(Env, let(X, T, E1, E2), Tret) :-
 %% Remplace un élement de sucre syntaxique dans Ei, donnant Eo.
 %% Ne renvoie jamais un Eo égal à Ei.
 expand(MV, _) :- var(MV), !, fail.
+expand(T1 -> T2, arw(X, T1, T2)) :- genatom('dummy_', X).
 
-expand((T1a -> T2a), arw(X, T1b, T2b)) :-
-    genatom('dummy_', X),
-    currArw(T1a, T1b),
-    currArw(T2a, T2b).
+% expand((T1a -> T2a), arw(X, T1b, T2b)) :-
+%     genatom('dummy_', X),
+%     currArw(T1a, T1b),
+%     currArw(T2a, T2b).
+
+expand(forall(T, T2), forall(T, type, T2)).
 
 % NOTE : Subject to change
-expand(forall(T, T1), forall(T, type, T2)) :-
-    expand(T1, T2);
-    T1 = T2.
+% expand(forall(T, T1), forall(T, type, T2)) :-
+%     expand(T1, T2);
+%     T1 = T2.
 
+% forall(t, type, (bool -> t -> t -> t)),
 %% currArw (+T1, -T2)
 %% S'occupe de convertir un type arrow de langage surface de longueur
 %% indéterminée à l'aide de la structure arw du langage interne
@@ -327,12 +330,13 @@ currArw(T, T).
 
 %% coerce(+Env, +E1, +T1, +T2, -E2)
 %% Transforme l'expression E1 (qui a type T1) en une expression E2 de type T2.
-coerce(_, list(_, _), type, (type -> int -> type), list).
+
 coerce(Env, E, T1, T2, E) :-
     T1 = T2;
     normalize(Env, T1, T1n),
     normalize(Env, T2, T2n),
     T1n = T2n.        %T1 = T2: rien à faire!
+
 
 %% !!!À COMPLÉTER!!!
 
@@ -346,18 +350,32 @@ infer(Env, (Ei : T), Eo, T1) :-
     check(Env, T, type, T1),
     check(Env, Ei, T1, Eo).
 
-infer(Env, arw(X, T1, T2), arw(X, T1, T2), type) :-
-    check(Env, T1, type, _),
-    check([(X : T1) | Env], T2, type, _).
-infer(Env, forall(X, T1, T2), forall(X, T1, T2), type) :-
-    check(Env, T1, type, _), 
-    check([(X : T1) | Env], T2, type, _).
-infer(Env, T1, type, type) :-
-    member((T1 : type), Env);
-    T1 = list(T, N),
-    member((list : arw(X, type, B)), Env),
-    apply(Env, fun(X, type, B), T, arw(Y, int, type)),
-    apply(Env, fun(Y, type, type), N, type).
+% Fig 2 - Règle 2
+infer(Env, fun(X, T, B), fun(X, T, B), arw(X, T, TB)) :-
+    check(Env, T, type, _),
+    infer([(X : T) | Env], B, B, TB).
+
+% Fig 2 - Règle 4
+infer(Env, arw(X, T1a, T2a), arw(X, T1b, T2b), type) :-
+    infer(Env, T1a, T1b, type),
+    infer(Env, T2a, T2b, type),
+    check(Env, T1b, type, _),
+    check([(X : T1b) | Env], T2b, type, _).
+
+% Fig 2 - Règle 5
+infer(Env, forall(X, T1a, T2a), forall(X, T1b, T2b), type) :-
+    infer(Env, T1a, T1b, type),
+    infer([(X : T1b) | Env], T2a, T2b, type),
+    check(Env, T1b, type, _), 
+    check([(X : T1b) | Env], T2b, type, _).
+
+% Fig 2 - Règle 1
+infer(Env, X, X, T) :-
+    member((X : T), Env).
+    % T1 = list(T, N),
+    % member((list : arw(X, type, B)), Env),
+    % apply(Env, fun(X, type, B), T, arw(Y, int, type)),
+    % apply(Env, fun(Y, type, type), N, type).
 %% !!!À COMPLÉTER!!!
 
 % nil:forall(t, type, arw(dummy_170, t, list(t, 0)))
@@ -374,8 +392,19 @@ check(_Env, MV, _, Eo) :-
     %% cas de toute façon, et pour les cas restants on se repose sur le filet
     %% de sécurité qu'est `verify`.
     var(MV), !, Eo = MV.
-check(Env, Ei, T, Eo) :- expand(Ei, Ei1), check(Env, Ei1, T, Eo).
+check(Env, Ei, T, Eo) :-
+    expand(Ei, Ei1),
+    check(Env, Ei1, T, Eo).
+
+% Fig 2 - Règle 11
+check(Env, E, forall(X, T, B), _) :-
+    check([(X : T) | Env], E, B, _).
+
+% Fig 2 - Règle 3
+check(Env, fun(X, B), arw(X, T, TB), _) :-
+    check([(X : T) | Env], B, TB, _).
 %% !!!À COMPLÉTER!!!
+
 %% Finalement, cas par défaut:
 check(Env, Ei, T, Eo) :-
     infer(Env, Ei, Eo1, T1),
@@ -410,7 +439,7 @@ initenv(Env) :-
          (<) : (float -> float -> int),
          if : forall(t, (bool -> t -> t -> t)),
          nil :  forall(t, list(t, 0)), % Test fails here
-         cons : forall([t,n],(t -> list(t, n) ->list(t, n + 1)))],
+         cons : forall([t,n],(t -> list(t, n) -> list(t, n + 1)))],
         Env).
 % check([
 %     if:forall(t, type, arw(dummy_301, bool, arw(dummy_302, t, arw(dummy_303, t, t)))),
