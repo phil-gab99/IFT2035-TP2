@@ -350,14 +350,17 @@ infer(Env, forall(X, T1a, T2a), forall(X, T1b, T2b), type) :-
 
 % Fig 2 - Règle 1
 infer(Env, X, X, T) :-
-    member((X : T), Env).
-    % T1 = list(T, N),
-    % member((list : arw(X, type, B)), Env),
+    member((X : T), Env);
+    member((list : arw(_, type, arw(_, int, type))), Env),
+    X = list(T1, N),
+    check(Env, T1, type, _),
+    check(Env, N, int, _),
+    T = type.
     % apply(Env, fun(X, type, B), T, arw(Y, int, type)),
     % apply(Env, fun(Y, type, type), N, type).
 %% !!!À COMPLÉTER!!!
 
-% nil:forall(t, type, arw(dummy_170, t, list(t, 0)))
+% nil:forall(t, type, list(t, 0))
 % list(t, 0) : type
 % list : type -> int -> type
 
