@@ -208,7 +208,13 @@ verify1(Env, let(X, T, E1, E2), Tret) :-
 expand(MV, _) :- var(MV), !, fail.
 expand(T1 -> T2, arw(X, T1, T2)) :- genatom('dummy_', X).
 
-expand(forall(T, T2), forall(T, _, T2)).
+expand(forall(X, T), forall(X, TS, T)) :-
+    genTypes(X, TS).
+
+genTypes([], []).
+genTypes([_ | XS], [_ | TS]) :-
+    genTypes(XS, TS).
+genTypes(_, _).
 
 % expand((T1 -> T2), arw(X, T1, ET2)) :-
 %     genatom('dummy_', X),
@@ -350,7 +356,13 @@ infer(Env, forall(X, T1a, T2a), forall(X, T1b, T2b), type) :-
 
 % Fig 2 - Règle 1
 infer(Env, X, X, T1) :-
-    member((X : T1), Env).
+    member((X : T1), Env);
+    X = [Y | YS],
+    member((Y : T1), Env),
+    YS == [] ->
+        true;
+        infer(Env, YS, YS, T1).
+    
     % member((list : arw(_, type, arw(_, int, type))), Env),
     % X = list(T1, N),
     % check(Env, T1, type, _),
@@ -420,7 +432,7 @@ initenv(Env) :-
          (/) : (float -> float -> float),
          (<) : (float -> float -> int),
          if : forall(t, (bool -> t -> t -> t)),
-         % nil :  forall(t, list(t, 0)), % Test fails here
+         nil :  forall(t, list(t, 0)), % Test fails here
          cons : forall([t,n],(t -> list(t, n) -> list(t, n + 1)))],
         Env).
 % check([
