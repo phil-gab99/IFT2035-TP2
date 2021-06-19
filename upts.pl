@@ -222,7 +222,7 @@ expand(let([D = V | DS], B), LX) :-
                 LX = let(X, T, V, B);
                 LX = let(X, T, V, let(DS, B)));
             X =.. [N | AS],
-            convertFun(AS, V, F), % À définir
+            convertFun(AS, V, F),
             (DS = [] ->
                 LX = let(N, T, F, B);
                 LX = let(N, T, F, let(DS, B))));
@@ -231,7 +231,7 @@ expand(let([D = V | DS], B), LX) :-
             (DS = [] ->
                 LX = let(N, V, B);
                 LX = let(N, V, let(DS, B)));
-            convertFun(AS, V, F), % À définir
+            convertFun(AS, V, F),
             (DS = [] ->
                 LX = let(N, F, B);
                 LX = let(N, F, let(DS,B))))).
