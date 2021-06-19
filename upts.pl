@@ -137,7 +137,7 @@ normalize(Env, app(E1, E2), En) :-
 %% equal(+Env, +T1, +T2)
 %% Vérifie que deux expressions sont égales.
 %% Utilisé pour vérifier l'égalité des types au niveau du langage interne, où
-%% `forall` and `arw` sont équivalents.
+%% `forall` et `arw` sont équivalents.
 equal(_, E, E).
 equal(Env, forall(X1, T1, E1), E2) :- equal(Env, arw(X1, T1, E1), E2).
 equal(Env, E2, forall(X1, T1, E1)) :- equal(Env, E2, arw(X1, T1, E1)).
