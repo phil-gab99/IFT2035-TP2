@@ -74,9 +74,9 @@ wf_args([X:T|Args]) :- wf_args(Args), identifier(X), wf(T).
 %%
 %% ne doit pas renvoyer `R = fun(y,int,y+y)` mais `R = fun(y1,int,y+y1)`.
 subst(_, _, _, MV, Eo) :-
-    %% Si MV est un terme non-instancié (i.e. une métavariable), la substitution
-    %% ne peut pas encore se faire.  Dans certains cas, on pourrait renvoyer
-    %% app(fun(X,Y),V), mais en général c'est problématique.
+    %% Si MV est un terme non-instancié (i.e. une métavariable), la 
+    %% substitution ne peut pas encore se faire.  Dans certains cas, on
+    %% pourrait renvoyer app(fun(X,Y),V), mais en général c'est problématique.
     %% Donc on impose ici la contrainte que les metavars ne peuvent pas
     %% faire référence à X.
     %% Le faire vraiment correctement est plus difficile.
@@ -215,32 +215,97 @@ expand(forall(X, B), F) :-
                 F = forall(A, _, B);
                 F = forall(X, _, B))).
 
-% list(t, 0)
-% Name = list
-% AS = [t, 0]
+expand(let([D = V | DS], B), LX) :-
+    (D = (X : T) ->
+        (functor(X, X, 0) ->
+            (DS = [] ->
+                LX = let(X, T, V, B);
+                LX = let(X, T, V, let(DS, B)));
+            X =.. [N | AS],
+            convertFun(AS, V, F), % À définir
+            (DS = [] ->
+                LX = let(N, T, F, B);
+                LX = let(N, T, F, let(DS, B))));
+        D =.. [N | AS],
+        (AS = [] ->
+            (DS = [] ->
+                LX = let(N, V, B);
+                LX = let(N, V, let(DS, B)));
+            convertFun(AS, V, F), % À définir
+            (DS = [] ->
+                LX = let(N, F, B);
+                LX = let(N, F, let(DS,B))))).
+
 expand(Fcall, App) :-
-    Fcall =.. [Name | AS],
-    \+ member(Name, [fun, app, arw, forall, (->), (:), let, [], (.)]),
+    Fcall =.. [N | AS],
+    \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
     length(AS, L),
     L \= 0,
-    functor(Fcall, Name, L),
-    append([Name], AS, F),
+    functor(Fcall, N, L),
+    append([N], AS, F),
     curryCall(F, App).
-% expand(X,A) :- X =.. [F|Args], append([F],Args,EF), convertapp(EF,A).
-% F = list
-% Args = [t, 0]
-% append([F], Args, EF)
-% EF = [list, t, 0].
 
+%% convertFun(+AS, +V, -F)
+convertFun([], V, V).
+convertFun([A | AS], V, F) :-
+    convertFun(AS, V, B),
+    (A = (X : T) ->
+        F = fun(X, T, B);
+        F = fun(A, B)).
+
+%% curryCall()
 curryCall([F, A], app(F, A)).
 curryCall(F ,app(EA,EX)) :-
     last(F, EX),
     append(TA, [EX], F),
     curryCall(TA, EA).
 
-% curryCall(Name, [A | AS], App) :-
-    
-
+% Helper method to construct `let`
+% convertlet(X = E, NA, ET, EF) :-
+%     (X = (X1 : T) ->
+%         NA = X1,
+%         expand(T,ET),
+%         convertfun1(NA,E,ET,EF);
+%         X =.. [NA|Args],
+%         convertfun(Args,E,EF),
+%         EF =.. [_|Args1],
+%         extracttype(Args1,TT),
+%         TT =..Args2,
+%         convertype(Args2,ET)).
+% % Faut gérer le cas où on a plusieurs paramètres implicites.
+% convertfun1(A,F,arw(_,T,XS),fun(EA,T,EXS)) :-
+%         XS = arw(_,T1,T2), 
+%         (F = fun(X,Y) ->
+%             EA = A,
+%             EXS = fun(X,T1,T2);
+%             A =.. [EA|[Arg|[]]],
+%             EXS = fun(Arg,T1,T2)).
+% 
+% %  % Extract type for let. Ex: fun(x,int,fun(y,int,x+y)) => (int->int)
+% %  % Take advantage of list decomposition in Prolog.
+% %  % fun(x,int,fun(y,int,x+y)) => [fun,x, int, fun(y,int,x+y)].
+% % extracttype([_, T, F], (T-> (ET))) :-
+% %      F =.. [_|[_|[B|[C|[]]]]],
+% %      (C = fun(_,_,_) ->
+% %          F =.. [_|Args],
+% %          extracttype(Args,ET); ET = B).
+% % 
+% % %  Convert arrow notation. Ex: (E1->E2->E3) => arw(_,E1,arw(_,E2,E3))
+% % %  Take advantage of list decompisition
+% % %  (E1 -> E2 -> E3) => [->, E1,(E2->E3)].
+% % %  (E1 -> E2) => [->,E1,E2].
+% % %  Doesn't decompose "list(E1,E2)"
+% % convertype([_|[T|[F|[]]]],arw(X,T,EF)) :-
+% %     genatom("dummy_",X),
+% %     F =.. [FF|Args],
+% %     (Args = [] ->
+% %         EF = FF;
+% %         FF = list ->
+% %             EF = F;
+% %             F =.. TF,
+% %             convertype(TF,EF)).
+% 
+% 
 % expand((T1 -> T2), arw(X, T1, ET2)) :-
 %     genatom('dummy_', X),
 %     T2=..ST2,
@@ -277,7 +342,7 @@ curryCall(F ,app(EA,EX)) :-
 % 
 % % % let sucre syntaxique
 % % % NA: nom de variable, EF: Evaluated Function, EC: Evaluated corps, ET: Evaluated Type
-% expand(let([X|[]], C), let(NA,ET,EF,EC)) :-
+% expand(let([X], C), let(NA,ET,EF,EC)) :-
 %     convertlet(X,NA,ET,EF), expand(C,EC).
 % 
 % expand(let([X|XS],C),let(NA,ET,EF,EC)) :-
@@ -291,49 +356,8 @@ curryCall(F ,app(EA,EX)) :-
 % convertapp(X,app(EA,EX)) :- last(X,EX),append(TA,[EX],X),convertapp(TA,EA).
 % 
 % 
-% convertfun([(X:T)|[]],E,fun(X,T,EF)) :- expand(E,EF) ; EF = E.
-% convertfun([(X : T)|XS],E,fun(X,T,EF)) :- convertfun(XS,E,EF).
+%
 % 
-% % Faut gérer le cas où on a plusieurs paramètres implicites.
-% convertfun1(A,F,arw(_,T,XS),fun(EA,T,EXS)) :-
-%         XS = arw(_,T1,T2), 
-%         (F = fun(X,Y) -> EA = A,EXS = fun(X,T1,T2); A=..[EA|[Arg|[]]], EXS = fun(Arg,T1,T2)).
-% 
-%  % Extract type for let. Ex: fun(x,int,fun(y,int,x+y)) => (int->int)
-%  % Take advantage of list decomposition in Prolog.
-%  % fun(x,int,fun(y,int,x+y)) => [fun,x, int, fun(y,int,x+y)].
-% extracttype([_|[T|[F|[]]]], (T-> (ET))) :-
-%      F =.. [_|[_|[B|[C|[]]]]],
-%      (C = fun(_,_,_) ->
-%          F =.. [_|Args],
-%          extracttype(Args,ET); ET = B).
-% 
-% %  Convert arrow notation. Ex: (E1->E2->E3) => arw(_,E1,arw(_,E2,E3))
-% %  Take advantage of list decompisition
-% %  (E1 -> E2 -> E3) => [->, E1,(E2->E3)].
-% %  (E1 -> E2) => [->,E1,E2].
-% %  Doesn't decompose "list(E1,E2)"
-% convertype([_|[T|[F|[]]]],arw(X,T,EF)) :-
-%     genatom("dummy_",X),
-%     F =.. [FF|Args],
-%     (Args = [] ->
-%         EF = FF;
-%         FF = list ->
-%             EF = F;
-%             F =.. TF,
-%             convertype(TF,EF)).
-% 
-% % Helper method to construct `let`
-% convertlet(X=E,NA,ET,EF) :-
-%       (X = (X1 : T) ->
-%              NA = X1,
-%              expand(T,ET),convertfun1(NA,E,ET,EF);
-%              X =.. [NA|Args],
-%              convertfun(Args,E,EF),
-%              EF=..[_|Args1],
-%              extracttype(Args1,TT),
-%              TT =..Args2,
-%              convertype(Args2,ET)).
 
 %% !!!À COMPLÉTER!!!
 
@@ -347,13 +371,15 @@ coerce(Env, E, T1, T2, E) :-
     normalize(Env, T2, T2n),
     T1n = T2n.        %T1 = T2: rien à faire!
 
+% Fig 2 - Règle 12
+coerce(Env, E1, forall(X, _, E3), T, app(E1, E4)) :-
+    subst(Env, X, E4, E3, T).
+
 % Fig 2 - Règle 13
 coerce(_, E1, int, float, app(int_to_float, E1)).
 
 % Fig 2 - Règle 14
 coerce(_, E1, int, bool, app(int_to_bool, E1)).
-
-% Fig 2 - Règle 12
 
 %% !!!À COMPLÉTER!!!
 
@@ -367,26 +393,38 @@ infer(Env, (Ei : T), Eo, T1) :-
     check(Env, T, type, T1),
     check(Env, Ei, T1, Eo).
 
-% Fig 2 - Règle 2
-infer(Env, fun(X, T, B), fun(X, T, B), arw(X, T, TB)) :-
-    check(Env, T, type, _),
-    infer([(X : T) | Env], B, B, TB).
-
-% Fig 2 - Règle 4
-infer(Env, arw(X, T1a, T2a), arw(X, T1b, T2b), type) :-
-    check(Env, T1a, type, T1b),
-    check([(X : T1b) | Env], T2a, type, T2b).
-
 % Fig 2 - Règle 6
 infer(Env, app(E1a, E2a), app(E1b, E2b), T) :-
     infer(Env, E1a, E1b, arw(X, E4, E5)),
     check(Env, E2a, E4, E2b),
     subst(Env, X, E2b, E5, T).
 
+% Fig 2 - Règle 4
+infer(Env, arw(X, T1a, T2a), arw(X, T1b, T2b), type) :-
+    check(Env, T1a, type, T1b),
+    check([(X : T1b) | Env], T2a, type, T2b).
+
 % Fig 2 - Règle 5
 infer(Env, forall(X, T1a, T2a), forall(X, T1b, T2b), type) :-
     check(Env, T1a, type, T1b),
     check([(X : T1b) | Env], T2a, type, T2b).
+
+% Fig 2 - Règle 2
+infer(Env, fun(X, T1, B1), fun(X, T2, B2), arw(X, T2, TB)) :-
+    check(Env, T1, type, T2),
+    infer([(X : T2) | Env], B1, B2, TB).
+
+% Fig 2 - Règle 7
+infer(Env, let(X, E1a, E2a, E3a), let(X, E1b, E2b, E3b), E4) :-
+    check(Env, E1a, type, E1b),
+    check([(X : E1b) | Env], E2a, E1b, E2b),
+    infer([(X : E1b) | Env], E3a, E3b, E4).
+
+% Fig 2 - Règle 8
+% Check if working in tests
+infer(Env, let(X, E2a, E3a), let(X, E1, E2b, E3b), E4) :-
+    infer([(X : E1) | Env], E2a, E2b, E1),
+    infer([(X : E1) | Env], E3a, E3b, E4).
 
 % Fig 2 - Règle 9
 infer(Env, E1a : E2a, E1b : E2b, E2b) :-
@@ -394,12 +432,12 @@ infer(Env, E1a : E2a, E1b : E2b, E2b) :-
     check(Env, E1a, E2b, E1b).
 
 % Fig 2 - Règle 1
-infer(Env, X, X, T1) :-
+infer(Env, X, X, T) :-
     (atom(X) ->
-        member((X : T1), Env);
+        member((X : T), Env); % Error with cons(13, nil) here
         X = app(F, A),
         infer(Env, A, _, TA),
-        infer(Env, F, F, arw(_, TA, T1))).
+        infer(Env, F, F, arw(_, TA, T))).
 %% !!!À COMPLÉTER!!!
 
 %% check(+Env, +Ei, +T, -Eo)
@@ -419,14 +457,14 @@ check(Env, Ei, T, Eo) :-
 % Fig 2 - Règle 10
 check(Env, Ea, Ta, Eb) :-
     infer(Env, Ea, Eb, Tb),
-    equal(Ta, Tb).
+    equal(Env, Ta, Tb).
 
 % Fig 2 - Règle 11
 check(Env, E1, forall(X, T, B), E2) :-
     check([(X : T) | Env], E1, B, E2).
 
 % Fig 2 - Règle 3
-check(Env, fun(X, B1), arw(X, T, TB), fun(X, B2)) :-
+check(Env, fun(X, B1), arw(X, T, TB), fun(X, T, B2)) :-
     check([(X : T) | Env], B1, TB, B2).
 %% !!!À COMPLÉTER!!!
 
@@ -466,6 +504,7 @@ initenv(Env) :-
          nil :  forall(t, list(t, 0)),
          cons : forall([t,n],(t -> list(t, n) -> list(t, n + 1)))],
         Env).
+% infer([type : type,int : type,float : type,bool : type,int_to_float : arw(dummy_16, int, float),int_to_bool : arw(dummy_17, int, bool),list : arw(dummy_18, type, arw(dummy_19, int, type)),(+) : arw(dummy_1, int, arw(dummy_2, int, int)),(-) : arw(dummy_3, int, arw(dummy_4, int, int)),(*) : arw(dummy_5, int, arw(dummy_6, int, int)),(/) : arw(dummy_7, float, arw(dummy_8, float, float)),(<) : arw(dummy_9, float, arw(dummy_10, float, int)),if : forall(t, type, arw(dummy_11, bool, arw(dummy_12, t, arw(dummy_13, t, t)))),nil : forall(t, type, app(app(list, t), 0)),cons : forall(t, type, (forall(n, int, arw(dummy_14, t, arw(dummy_15, app(app(list,t), n), app(app(list,t), app(app(+, n), 1)))))))], cons(13, nil), E, T).
 
 %% Quelques expressions pour nos tests.
 sample(1 + 2).
@@ -474,10 +513,15 @@ sample(cons(13,nil)). % Test fails here
 sample(cons(1.0, cons(2.0, nil))).
 sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],fact(44))).
 sample(let([fact(n) : (int -> int) = if(n < 2, 1, n * fact(n - 1))],fact(45))).
-sample(let([list1 : forall(a, (a -> list(a, 1))) = fun(x, cons(x, nil))],list1(42))).
-sample(let([list1(x) : forall(a, (a -> list(a, 1))) = cons(x, nil)],list1(43))).
-%% L'argument `n` ne peut être que 0, ici, et on peut l'inférer!
-sample(let([pushn(n,l) : arw(n, _, (list(int,n) -> list(int,n+1))) = cons(n,l)],pushn(_,nil))).
+sample(let(
+    [list1 : forall(a, (a -> list(a, 1))) = fun(x, cons(x, nil))],list1(42))).
+sample(let(
+    [list1(x) : forall(a, (a -> list(a, 1))) = cons(x, nil)],list1(43))).
+    
+%% L'argument 'n' ne peut être que 0, ici, et on peut l'inférer!
+sample(let(
+    [pushn(n,l) : arw(n, _, (list(int,n) -> list(int,n + 1))) = cons(n,l)],
+    pushn(_,nil))).
 
 %% Roule le test sur une expression.
 test_sample(Env, E) :-
