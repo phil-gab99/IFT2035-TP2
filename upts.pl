@@ -364,7 +364,6 @@ curryCall(F ,app(EA,EX)) :-
 
 %% coerce(+Env, +E1, +T1, +T2, -E2)
 %% Transforme l'expression E1 (qui a type T1) en une expression E2 de type T2.
-
 coerce(Env, E, T1, T2, E) :-
     T1 = T2;
     normalize(Env, T1, T1n),
