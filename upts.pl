@@ -253,12 +253,12 @@ convertFun([A | AS], V, F) :-
         F = fun(X, T, B);
         F = fun(A, B)).
 
-%% curryCall()
+%% curryCall(+functor, -app(F, A))
 curryCall([F, A], app(F, A)).
-curryCall(F ,app(EA,EX)) :-
-    last(F, EX),
-    append(TA, [EX], F),
-    curryCall(TA, EA).
+curryCall(F ,app(App, A)) :-
+    last(F, A),
+    append(AS, [A], F),
+    curryCall(AS, App).
 
 % Helper method to construct `let`
 % convertlet(X = E, NA, ET, EF) :-
@@ -382,10 +382,15 @@ coerce(_, E1, int, bool, app(int_to_bool, E1)).
 
 %% !!!À COMPLÉTER!!!
 
+% rewrite(Env, Fa, Fb) :-
+%     Fa =.. [N | As],
+%     member((N : forall(X, T, B)), Env),
+    
+
 %% infer(+Env, +Ei, -Eo, -T)
 %% Élabore Ei (dans un contexte Env) en Eo et infère son type T.
 infer(_, MV, MV, _) :- var(MV), !.            %Une expression encore inconnue.
-infer(Env, Ei, Eo, T) :- expand(Ei, Ei1), infer(Env, Ei1, Eo, T).
+infer(Env, Ei, Eo, T) :- rewrite(Env, Ei, Ei1), expand(Ei1, Ei2), infer(Env, Ei2, Eo, T).
 infer(_, X, X, int) :- integer(X).
 infer(_, X, X, float) :- float(X).
 infer(Env, (Ei : T), Eo, T1) :-
@@ -425,11 +430,6 @@ infer(Env, let(X, E1a, E2a, E3a), let(X, E1b, E2b, E3b), E4) :-
 infer(Env, let(X, E2a, E3a), let(X, E1, E2b, E3b), E4) :-
     infer([(X : E1) | Env], E2a, E2b, E1),
     infer([(X : E1) | Env], E3a, E3b, E4).
-
-% % Fig 2 - Règle 9
-% infer(Env, E1a : E2a, E1b : E2b, E2b) :-
-%     check(Env, E2a, type, E2b),
-%     check(Env, E1a, E2b, E1b).
 
 % Fig 2 - Règle 1
 infer(Env, X, X, T) :-
@@ -507,7 +507,7 @@ initenv(Env) :-
 %% Quelques expressions pour nos tests.
 % sample(1 + 2).
 % sample(1 / 2).
-% sample(let([identity(x) : (forall(t, (t -> t))) = x], identity(3))).
+sample(let([identity(x) : (forall(t, (t -> t))) = x], identity(3))).
 sample(nil(int)).
 sample(if(1 < 2, 1, 2)). % Test fails here
 sample(cons(13,nil)).
