@@ -236,7 +236,7 @@ expand(let([D = V | DS], B), LX) :-
                 (DS = [] ->
                     LX = let(N, T, F, B);
                     LX = let(N, T, F, let(DS, B)))));
-        D =.. [N | AS], % else branch
+        D =.. [N | AS],
         (AS = [] ->
             (DS = [] ->
                 LX = let(N, V, B);
@@ -421,7 +421,7 @@ infer(Env, forall(X, E1a, E2a), forall(X, E1b, E2b), type) :-
     check([(X : E1b) | Env], E2a, type, E2b).
 
 % Fig 2 - Règle 2
-infer(Env, fun(X, E1a, E2a), fun(X, E1b, E2b), arw(_, E1b, E3)) :-
+infer(Env, fun(X, E1a, E2a), fun(X, E1b, E2b), arw(X, E1b, E3)) :-
     check(Env, E1a, type, E1b),
     infer([(X : E1b) | Env], E2a, E2b, E3).
 
@@ -514,9 +514,9 @@ initenv(Env) :-
 %% Quelques expressions pour nos tests.
 % sample(1 + 2).
 % sample(1 / 2).
-sample(let([identity(x) : (forall(t, (t -> t))) = x], identity(3))).
-sample(nil(int)).
-sample(if(1 < 2, 1, 2)). % Test fails here
+sample(let([add(x:int,y:int)=x+y, div(x:float,y:float)=x/y], div(add(3,2), 5))).
+sample(let([identity(x) : (forall(t, (t -> t))) = x], identity(3))). % Test fails here
+sample(if(1 < 2, 1, 2)).
 sample(cons(13,nil)).
 sample(cons(1.0, cons(2.0, nil))).
 sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],fact(44))).
