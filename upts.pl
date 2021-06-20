@@ -217,16 +217,26 @@ expand(forall(X, B), F) :-
 
 expand(let([D = V | DS], B), LX) :-
     (D = (X : T) ->
-        (functor(X, X, 0) ->
-            (DS = [] ->
-                LX = let(X, T, V, B);
-                LX = let(X, T, V, let(DS, B)));
-            X =.. [N | AS],
-            convertFun(AS, V, F),
-            (DS = [] ->
-                LX = let(N, T, F, B);
-                LX = let(N, T, F, let(DS, B))));
-        D =.. [N | AS],
+        (T =.. [forall | _] ->
+            (functor(X, X, 0) ->
+                (DS = [] ->
+                    LX = let(X, T, fun(_, V), B);
+                    LX = let(X, T, fun(_, V), let(DS, B)));
+                X =.. [N | AS],
+                convertFun(AS, V, F),
+                (DS = [] ->
+                    LX = let(N, T, fun(_, F), B);
+                    LX = let(N, T, fun(_, F), let(DS, B))));
+            (functor(X, X, 0) ->
+                (DS = [] ->
+                    LX = let(X, T, V, B);
+                    LX = let(X, T, V, let(DS, B)));
+                X =.. [N | AS],
+                convertFun(AS, V, F),
+                (DS = [] ->
+                    LX = let(N, T, F, B);
+                    LX = let(N, T, F, let(DS, B)))));
+        D =.. [N | AS], % else branch
         (AS = [] ->
             (DS = [] ->
                 LX = let(N, V, B);
@@ -382,15 +392,10 @@ coerce(_, E1, int, bool, app(int_to_bool, E1)).
 
 %% !!!À COMPLÉTER!!!
 
-% rewrite(Env, Fa, Fb) :-
-%     Fa =.. [N | As],
-%     member((N : forall(X, T, B)), Env),
-    
-
 %% infer(+Env, +Ei, -Eo, -T)
 %% Élabore Ei (dans un contexte Env) en Eo et infère son type T.
 infer(_, MV, MV, _) :- var(MV), !.            %Une expression encore inconnue.
-infer(Env, Ei, Eo, T) :- rewrite(Env, Ei, Ei1), expand(Ei1, Ei2), infer(Env, Ei2, Eo, T).
+infer(Env, Ei, Eo, T) :- expand(Ei, Ei1), infer(Env, Ei1, Eo, T).
 infer(_, X, X, int) :- integer(X).
 infer(_, X, X, float) :- float(X).
 infer(Env, (Ei : T), Eo, T1) :-
@@ -423,7 +428,9 @@ infer(Env, fun(X, E1a, E2a), fun(X, E1b, E2b), arw(_, E1b, E3)) :-
 % Fig 2 - Règle 7
 infer(Env, let(X, E1a, E2a, E3a), let(X, E1b, E2b, E3b), E4) :-
     check(Env, E1a, type, E1b),
-    check([(X : E1b) | Env], E2a, E1b, E2b),
+    (E1b = forall(A, B, C) ->
+        check([(X : E1b) | Env], E2a, arw(A, B, C), E2b);
+        check([(X : E1b) | Env], E2a, E1b, E2b)),
     infer([(X : E1b) | Env], E3a, E3b, E4).
 
 % Fig 2 - Règle 8
