@@ -246,14 +246,7 @@ expand(let([D = V | DS], B), LX) :-
                 LX = let(N, F, B);
                 LX = let(N, F, let(DS,B))))).
 
-expand(Fcall, App) :-
-    Fcall =.. [N | AS],
-    \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
-    length(AS, L),
-    L \= 0,
-    functor(Fcall, N, L),
-    append([N], AS, F),
-    curryCall(F, App).
+
 
 %% convertFun(+AS, +V, -F)
 convertFun([], V, V).
@@ -395,7 +388,17 @@ coerce(_, E1, int, bool, app(int_to_bool, E1)).
 %% infer(+Env, +Ei, -Eo, -T)
 %% Élabore Ei (dans un contexte Env) en Eo et infère son type T.
 infer(_, MV, MV, _) :- var(MV), !.            %Une expression encore inconnue.
-infer(Env, Ei, Eo, T) :- expand(Ei, Ei1), infer(Env, Ei1, Eo, T).
+
+infer(Env, Ei, Eo, T) :- 
+
+expand(Ei, Ei1), infer(Env, Ei1, Eo, T);
+Ei =.. [N,Arg], member((N:TF),Env), TF =.. [F|_],
+ F = forall(_,_,_) -> infer(Env,Arg,Arg,T1), expandApp1(N,[T1,Arg],Ei1),infer(Env,Ei1,Eo,T);
+ expandApp(Ei,Ei1),infer(Env,Ei1,Eo,T).
+ 
+    
+
+
 infer(_, X, X, int) :- integer(X).
 infer(_, X, X, float) :- float(X).
 infer(Env, (Ei : T), Eo, T1) :-
@@ -441,6 +444,23 @@ infer(Env, let(X, E2a, E3a), let(X, E1, E2b, E3b), E4) :-
 % Fig 2 - Règle 1
 infer(Env, X, X, T) :-
     member((X : T), Env).
+
+expandApp1(N,AS,App) :-
+    \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
+    length(AS, L),
+    L \= 0,
+    % functor(Fcall, N, L),
+    append([N], AS, F),
+    curryCall(F, App).  
+
+expandApp(Fcall, App) :-
+    Fcall =.. [N | AS],
+    \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
+    length(AS, L),
+    L \= 0,
+    functor(Fcall, N, L),
+    append([N], AS, F),
+    curryCall(F, App).    
 %% !!!À COMPLÉTER!!!
 
 %% check(+Env, +Ei, +T, -Eo)
