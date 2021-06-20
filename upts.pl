@@ -373,8 +373,6 @@ coerce(Env, E, T1, T2, E) :-
 % Fig 2 - Règle 12
 coerce(Env, E1, forall(X, _, E3), T, app(E1, E4)) :-
     subst(Env, X, E4, E3, T).
-% coerce(Env, E1, forall(X, E2, E3), T, app(E1, E4)) :-
-%     apply((X | E2) | Env, E3, E4, T).
 
 % Fig 2 - Règle 13
 coerce(_, E1, int, float, app(int_to_float, E1)).
@@ -396,7 +394,9 @@ infer(Env, (Ei : T), Eo, T1) :-
 
 % Fig 2 - Règle 6
 infer(Env, app(E1a, E2a), app(E1b, E2b), T) :-
-    infer(Env, E1a, E1b, arw(X, E4, E5)),
+    (member((E1a : forall(_, _, _)), Env) ->
+        infer(Env, E1a, E1b, forall(X, E4, E5));
+        infer(Env, E1a, E1b, arw(X, E4, E5))),
     check(Env, E2a, E4, E2b),
     subst(Env, X, E2b, E5, T).
 
@@ -411,7 +411,7 @@ infer(Env, forall(X, E1a, E2a), forall(X, E1b, E2b), type) :-
     check([(X : E1b) | Env], E2a, type, E2b).
 
 % Fig 2 - Règle 2
-infer(Env, fun(X, E1a, E2a), fun(X, E1b, E2b), arw(X, E1b, E3)) :-
+infer(Env, fun(X, E1a, E2a), fun(X, E1b, E2b), arw(_, E1b, E3)) :-
     check(Env, E1a, type, E1b),
     infer([(X : E1b) | Env], E2a, E2b, E3).
 
@@ -434,14 +434,6 @@ infer(Env, let(X, E2a, E3a), let(X, E1, E2b, E3b), E4) :-
 % Fig 2 - Règle 1
 infer(Env, X, X, T) :-
     member((X : T), Env).
-    % atom(X),
-    % (member((X : T), Env);
-    % member((X : T1), Env),
-    % \+ var(T1),
-    % infer(Env, X, X, T1)). % Error with cons(13, nil) here
-        % X = app(F, A),
-        % infer(Env, A, _, TA),
-        % infer(Env, F, F, arw(_, TA, T))).
 %% !!!À COMPLÉTER!!!
 
 %% check(+Env, +Ei, +T, -Eo)
@@ -469,7 +461,6 @@ check(Env, E1a, forall(X, E2, E3), E1b) :-
 
 % Fig 2 - Règle 3
 check(Env, fun(X, E2a), arw(_, E1, E3), fun(X, E1, E2b)) :-
-    true,
     check([(X : E1) | Env], E2a, E3, E2b).
 %% !!!À COMPLÉTER!!!
 
@@ -516,7 +507,7 @@ initenv(Env) :-
 %% Quelques expressions pour nos tests.
 % sample(1 + 2).
 % sample(1 / 2).
-sample(let([add(x, y) : (int -> int -> int) = x + y], add(1,2))).
+% sample(let([identity(x) : (forall(t, (t -> t))) = x], identity(3))).
 sample(nil(int)).
 sample(if(1 < 2, 1, 2)). % Test fails here
 sample(cons(13,nil)).
