@@ -52,7 +52,6 @@ wf_decls([X = E|Decls]) :-
 wf_args([]).
 wf_args([X:T|Args]) :- wf_args(Args), identifier(X), wf(T).
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Manipulation du langage interne %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -104,14 +103,12 @@ subst(Env, X, V, forall(Y, Ti, Bi), forall(Y1, To, Bo)) :-
 subst(Env, X, V, app(E1i, E2i), app(E1o, E2o)) :-
     subst(Env, X, V, E1i, E1o), subst(Env, X, V, E2i, E2o).
 
-
 %% apply(+Env, +F, +Arg, -E)
 %% Les règles d'évaluations primitives. Env donne le types des variables
 %% libres qui peuvent apparaître.
 apply(Env, fun(X, _, B), Arg, E) :- \+ var(B), subst(Env, X, Arg, B, E).
 apply(_,   app(+, N1), N2, N) :- integer(N1), integer(N2), N is N1 + N2.
 apply(_,   app(-, N1), N2, N) :- integer(N1), integer(N2), N is N1 - N2.
-
 
 %% normalize(+Env, +Ei, -Eo)
 %% Applique toutes les réductions possibles sur Ei et tous ses sous-termes.
@@ -158,7 +155,6 @@ equal(Env, E1, E2) :-
          %% There was nothing to normalize :-(
          fail;
      equal(Env, E1n, E2n) -> true).
-        
 
 %% verify(+Env, +E, +T)
 %% Vérifie que E a type T dans le contexte Env.
@@ -169,7 +165,6 @@ verify(Env, E, T) :-
         (equal(Env, T, T1) -> true;
          write(user_error, not_equal(T, T1)), nl(user_error), fail);
     write(user_error, verify_failure(E)), nl(user_error), fail.
-
 
 %% verify1(+Env, +E, -T)
 %% Calcule le type de E dans Env.
@@ -207,14 +202,12 @@ verify1(Env, let(X, T, E1, E2), Tret) :-
 %% Ne renvoie jamais un Eo égal à Ei.
 expand(MV, _) :- var(MV), !, fail.
 expand(T1 -> T2, arw(X, T1, T2)) :- genatom('dummy_', X).
-
 expand(forall(X, B), F) :-
     (X = [T | TS], TS \= [] ->
             F = forall(T, _, forall(TS, B));
             (X = [A] ->
                 F = forall(A, _, B);
                 F = forall(X, _, B))).
-
 expand(let([D = V | DS], B), LX) :-
     (D = (X : T) ->
         (T =.. [forall | _] ->
@@ -245,7 +238,6 @@ expand(let([D = V | DS], B), LX) :-
             (DS = [] ->
                 LX = let(N, F, B);
                 LX = let(N, F, let(DS,B))))).
-
 expand(Fcall, App) :-
     Fcall =.. [N | AS],
     \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
@@ -270,108 +262,6 @@ curryCall(F ,app(App, A)) :-
     append(AS, [A], F),
     curryCall(AS, App).
 
-% Helper method to construct `let`
-% convertlet(X = E, NA, ET, EF) :-
-%     (X = (X1 : T) ->
-%         NA = X1,
-%         expand(T,ET),
-%         convertfun1(NA,E,ET,EF);
-%         X =.. [NA|Args],
-%         convertfun(Args,E,EF),
-%         EF =.. [_|Args1],
-%         extracttype(Args1,TT),
-%         TT =..Args2,
-%         convertype(Args2,ET)).
-% % Faut gérer le cas où on a plusieurs paramètres implicites.
-% convertfun1(A,F,arw(_,T,XS),fun(EA,T,EXS)) :-
-%         XS = arw(_,T1,T2), 
-%         (F = fun(X,Y) ->
-%             EA = A,
-%             EXS = fun(X,T1,T2);
-%             A =.. [EA|[Arg|[]]],
-%             EXS = fun(Arg,T1,T2)).
-% 
-% %  % Extract type for let. Ex: fun(x,int,fun(y,int,x+y)) => (int->int)
-% %  % Take advantage of list decomposition in Prolog.
-% %  % fun(x,int,fun(y,int,x+y)) => [fun,x, int, fun(y,int,x+y)].
-% % extracttype([_, T, F], (T-> (ET))) :-
-% %      F =.. [_|[_|[B|[C|[]]]]],
-% %      (C = fun(_,_,_) ->
-% %          F =.. [_|Args],
-% %          extracttype(Args,ET); ET = B).
-% % 
-% % %  Convert arrow notation. Ex: (E1->E2->E3) => arw(_,E1,arw(_,E2,E3))
-% % %  Take advantage of list decompisition
-% % %  (E1 -> E2 -> E3) => [->, E1,(E2->E3)].
-% % %  (E1 -> E2) => [->,E1,E2].
-% % %  Doesn't decompose "list(E1,E2)"
-% % convertype([_|[T|[F|[]]]],arw(X,T,EF)) :-
-% %     genatom("dummy_",X),
-% %     F =.. [FF|Args],
-% %     (Args = [] ->
-% %         EF = FF;
-% %         FF = list ->
-% %             EF = F;
-% %             F =.. TF,
-% %             convertype(TF,EF)).
-% 
-% 
-% expand((T1 -> T2), arw(X, T1, ET2)) :-
-%     genatom('dummy_', X),
-%     T2=..ST2,
-%     length(ST2,Len),
-%     (Len = 3, \+ member(list,ST2) -> convertype(ST2,ET2); ET2 = T2).
-%
-%  expand(forall([X|XS],B),arw(X,type,EB)) :- expand(forall(XS,B),EB).
-%  expand(forall(A,B),arw(A,type,EB)) :- expand(B,EB).
-% 
-%  expand(forall(A,B,C),arw(A,EB,EC)) :- expand(B,EB),expand(C,EC).
-% 
-%  expand(arw(A,B,C),arw(A,EB,EC)) :-
-%      expand(B,EB),expand(C,EC);
-%      (B = _ -> EB = type, expand(C,EC); false).
-% 
-% expand((T1 -> T2), arw(X, T1, ET2)) :- genatom('dummy_', X),
-%                                         T2=..ST2,
-%                                         length(ST2,Len),
-%                                         (Len = 3, \+ member(list,ST2) -> convertype(ST2,ET2); ET2 = T2).
-% 
-% expand(forall([X|XS],B),arw(X,type,EB)) :- expand(forall(XS,B),EB).
-% expand(forall(A,B),arw(A,type,EB)) :- (B=list(_,_) -> EB = B; expand(B,EB)).
-% 
-% expand(forall(A,B,C),arw(A,EB,EC)) :- expand(B,EB),expand(C,EC).
-% 
-% expand(arw(A,B,C),arw(A,EB,EC)) :-
-%      expand(B,EB),expand(C,EC);
-%      (B = _ -> EB = type, expand(C,EC); false).
-% 
-% expand(let(A,B,C),let(A,ET,B,EC)) :-
-%      expand(C,EC), B =.. [_|Args],
-%      extracttype(Args,TT),
-%      expand(TT,ET).
-% 
-% % % let sucre syntaxique
-% % % NA: nom de variable, EF: Evaluated Function, EC: Evaluated corps, ET: Evaluated Type
-% expand(let([X], C), let(NA,ET,EF,EC)) :-
-%     convertlet(X,NA,ET,EF), expand(C,EC).
-% 
-% expand(let([X|XS],C),let(NA,ET,EF,EC)) :-
-%         convertlet(X,NA,ET,EF),
-%         expand(let(XS,C),EC).
-% 
-% 
-% % expand(X,A) :- X =.. [F|Args], append([F],Args,EF), convertapp(EF,A).
-% 
-% convertapp([X|[XS|[]]],app(X,XS)).
-% convertapp(X,app(EA,EX)) :- last(X,EX),append(TA,[EX],X),convertapp(TA,EA).
-% 
-% 
-%
-% 
-
-%% !!!À COMPLÉTER!!!
-
-
 %% coerce(+Env, +E1, +T1, +T2, -E2)
 %% Transforme l'expression E1 (qui a type T1) en une expression E2 de type T2.
 coerce(Env, E, T1, T2, E) :-
@@ -389,8 +279,6 @@ coerce(_, E1, int, float, app(int_to_float, E1)).
 
 % Fig 2 - Règle 14
 coerce(_, E1, int, bool, app(int_to_bool, E1)).
-
-%% !!!À COMPLÉTER!!!
 
 %% infer(+Env, +Ei, -Eo, -T)
 %% Élabore Ei (dans un contexte Env) en Eo et infère son type T.
@@ -442,24 +330,6 @@ infer(Env, Ei, Eo, T) :-
     member((Ei : Ti), Env),
     coerce(Env, Ei, Ti, T, Eo).
 
-% expandApp1(N,AS,App) :-
-%     \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
-%     length(AS, L),
-%     L \= 0,
-%     % functor(Fcall, N, L),
-%     append([N], AS, F),
-%     curryCall(F, App).  
-% 
-% expandApp(Fcall, App) :-
-%     Fcall =.. [N | AS],
-%     \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
-%     length(AS, L),
-%     L \= 0,
-%     functor(Fcall, N, L),
-%     append([N], AS, F),
-%     curryCall(F, App).    
-%% !!!À COMPLÉTER!!!
-
 %% check(+Env, +Ei, +T, -Eo)
 %% Élabore Ei (dans un contexte Env) en Eo, en s'assurant que son type soit T.
 check(_Env, MV, _, Eo) :-
@@ -486,18 +356,15 @@ check(Env, E1a, forall(X, E2, E3), E1b) :-
 % Fig 2 - Règle 3
 check(Env, fun(X, E2a), arw(_, E1, E3), fun(X, E1, E2b)) :-
     check([(X : E1) | Env], E2a, E3, E2b).
-%% !!!À COMPLÉTER!!!
 
 %% Finalement, cas par défaut:
 check(Env, Ei, T, Eo) :-
     infer(Env, Ei, Eo1, T1),
     (coerce(Env, Eo1, T1, T, Eo) -> true).
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Environnement initial et tests %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 elaborate_env(Env, [], Env).
 elaborate_env(Env, [X:Ti|Envi], Envo) :-
