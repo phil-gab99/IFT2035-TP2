@@ -210,16 +210,16 @@ expand(forall(X, B), F) :-
                 F = forall(X, _, B))).
 expand(let([D = V | DS], B), LX) :-
     (D = (X : T) ->
-        % (T =.. [forall | _] ->
-        %     (functor(X, X, 0) ->
-        %         (DS = [] ->
-        %             LX = let(X, T, fun(_, V), B);
-        %             LX = let(X, T, fun(_, V), let(DS, B)));
-        %         X =.. [N | AS],
-        %         convertFun(AS, V, F),
-        %         (DS = [] ->
-        %             LX = let(N, T, fun(_, F), B);
-        %             LX = let(N, T, fun(_, F), let(DS, B))));
+        (T =.. [forall | _] ->
+            (functor(X, X, 0) ->
+                (DS = [] ->
+                    LX = let(X, T, fun(_, V), B);
+                    LX = let(X, T, fun(_, V), let(DS, B)));
+                X =.. [N | AS],
+                convertFun(AS, V, F),
+                (DS = [] ->
+                    LX = let(N, T, fun(_, F), B);
+                    LX = let(N, T, fun(_, F), let(DS, B))));
             (functor(X, X, 0) ->
                 (DS = [] ->
                     LX = let(X, T, V, B);
@@ -228,7 +228,7 @@ expand(let([D = V | DS], B), LX) :-
                 convertFun(AS, V, F),
                 (DS = [] ->
                     LX = let(N, T, F, B);
-                    LX = let(N, T, F, let(DS, B))));
+                    LX = let(N, T, F, let(DS, B)))));
         D =.. [N | AS],
         (AS = [] ->
             (DS = [] ->
@@ -264,63 +264,67 @@ coerce(Env, E, T1, T2, E) :-
     normalize(Env, T2, T2n),
     T1n = T2n.        %T1 = T2: rien à faire!
 
-% Fig 2 - Règle 12
-coerce(Env, E1, forall(X, _, E3), T, app(E1, E4)) :-
-    subst(Env, X, E4, E3, T).
-    % coerce(Env, , E3, )
+% Règle 12
+coerce(Env, E1a, forall(X, _, E3), T, app(E1b, E4)) :-
+    (E3 = forall(_, _, _) ->
+        coerce(Env, E1a, E3, arw(_, _, _), E1b);
+        E1b = E1a,
+        subst(Env, X, E4, E3, T)).
 
-% Fig 2 - Règle 13
+% Règle 13
 coerce(_, E1, int, float, app(int_to_float, E1)).
 
-% Fig 2 - Règle 14
+% Règle 14
 coerce(_, E1, int, bool, app(int_to_bool, E1)).
 
 %% infer(+Env, +Ei, -Eo, -T)
 %% Élabore Ei (dans un contexte Env) en Eo et infère son type T.
-infer(_, MV, MV, _) :- var(MV), !.            %Une expression encore inconnue.
+infer(_, MV, MV, _) :- var(MV), !.            % Une expression encore inconnue.
 
 infer(Env, Ei, Eo, T) :- expand(Ei, Ei1), infer(Env, Ei1, Eo, T).
 infer(_, X, X, int) :- integer(X).
 infer(_, X, X, float) :- float(X).
+
+% Règle 9
 infer(Env, (Ei : T), Eo, T1) :-
     check(Env, T, type, T1),
     check(Env, Ei, T1, Eo).
 
-% Fig 2 - Règle 6
+% Règle 6
 infer(Env, app(E1a, E2a), app(E1b, E2b), T) :-
     infer(Env, E1a, E1b, arw(X, E4, E5)),
     check(Env, E2a, E4, E2b),
     subst(Env, X, E2b, E5, T).
 
-% Fig 2 - Règle 4
+% Règle 4
 infer(Env, arw(X, E1a, E2a), arw(X, E1b, E2b), type) :-
     check(Env, E1a, type, E1b),
-    check([(X : E1b) | Env], E2a, type, E2b).
+    check([X : E1b | Env], E2a, type, E2b).
 
-% Fig 2 - Règle 5
+% Règle 5
 infer(Env, forall(X, E1a, E2a), forall(X, E1b, E2b), type) :-
     check(Env, E1a, type, E1b),
-    check([(X : E1b) | Env], E2a, type, E2b).
+    check([X : E1b | Env], E2a, type, E2b).
 
-% Fig 2 - Règle 2
+% Règle 2
 infer(Env, fun(X, E1a, E2a), fun(X, E1b, E2b), arw(X, E1b, E3)) :-
     check(Env, E1a, type, E1b),
-    infer([(X : E1b) | Env], E2a, E2b, E3).
+    infer([X : E1b | Env], E2a, E2b, E3).
 
-% Fig 2 - Règle 7
+% Règle 7
 infer(Env, let(X, E1a, E2a, E3a), let(X, E1b, E2b, E3b), E4) :-
     check(Env, E1a, type, E1b),
-    % (E1b = forall(A, B, C) ->
-    %     check([(X : E1b) | Env], E2a, arw(A, B, C), E2b);
-        check([(X : E1b) | Env], E2a, E1b, E2b),
+    (E1b = forall(A, B, C) ->
+        check([X : E1b | Env], E2a, arw(A, B, C), E2b);
+        check([X : E1b | Env], E2a, E1b, E2b)),
     infer([(X : E1b) | Env], E3a, E3b, E4).
 
-% Fig 2 - Règle 8
+% Règle 8
 infer(Env, let(X, E2a, E3a), let(X, E1, E2b, E3b), E4) :-
-    infer([(X : E1) | Env], E2a, E2b, E1),
-    infer([(X : E1) | Env], E3a, E3b, E4).
+    infer([X : E1 | Env], E2a, E2b, E1),
+    infer([X : E1 | Env], E3a, E3b, E4).
 
-% Fig 2 - Règle 1
+% Règle 1
 infer(Env, Ei, Eo, T) :-
     member((Ei : Ti), Env),
     coerce(Env, Ei, Ti, T, Eo).
@@ -339,18 +343,18 @@ check(Env, Ei, T, Eo) :-
     expand(Ei, Ei1),
     check(Env, Ei1, T, Eo).
 
-% Fig 2 - Règle 10
+% Règle 10
 check(Env, E1a, E3, E1b) :-
     infer(Env, E1a, E1b, E2),
     equal(Env, E2, E3).
 
-% Fig 2 - Règle 11
+% Règle 11
 check(Env, E1a, forall(X, E2, E3), E1b) :-
     check([(X : E2) | Env], E1a, E3, E1b).
 
-% Fig 2 - Règle 3
+% Règle 3
 check(Env, fun(X, E2a), arw(_, E1, E3), fun(X, E1, E2b)) :-
-    check([(X : E1) | Env], E2a, E3, E2b).
+    check([X : E1 | Env], E2a, E3, E2b).
 
 %% Finalement, cas par défaut:
 check(Env, Ei, T, Eo) :-
@@ -394,12 +398,13 @@ initenv(Env) :-
 % sample(1 + 2).
 % sample(1 / 2).
 % sample(let([add(x:int,y:int)=x+y, div(x:float,y:float)=x/y], div(add(3,2), 5))).
-sample(let([identity : (forall(t, (t -> t))) = fun(x,x)], identity(3))).
-% sample(if(1 < 2, 1, 2)).
-sample(cons(int, 0, 13,nil)). % Test fails here
+% sample(let([identity : (arw(t, type, (t -> t))) = fun(t,fun(x,x))], identity(int, 3))).
+sample(if(1 < 2, 1, 2)).
+sample(nil).
+sample(cons(13,nil)). % Test fails here
 sample(cons(1.0, cons(2.0, nil))).
-% sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],fact(44))).
-% sample(let([fact(n) : (int -> int) = if(n < 2, 1, n * fact(n - 1))],fact(45))).
+sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],fact(44))).
+sample(let([fact(n) : (int -> int) = if(n < 2, 1, n * fact(n - 1))],fact(45))).
 sample(let(
     [list1 : forall(a, (a -> list(a, 1))) = fun(x, cons(x, nil))],list1(42))).
 sample(let(

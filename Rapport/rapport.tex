@@ -1,6 +1,6 @@
-\documentclass[10pt, titlepage]{article}
+\documentclass[12pt, titlepage]{article}
 
-\usepackage[margin=0.5in]{geometry}
+\usepackage[margin=0.75in]{geometry}
 \usepackage{amsmath, amssymb}
 \usepackage{microtype}
 \usepackage{titlesec}
@@ -14,7 +14,7 @@
 \definecolor{mauve}{rgb}{0.58,0,0.82}
 
 \lstset{frame=tb,
-    language=Haskell,
+    language=Prolog,
     showstringspaces=false,
     columns=flexible,
     basicstyle={\small\ttfamily},
@@ -63,6 +63,56 @@ l'emplacement des échecs d'exécution et nous permet par la suite de
 corriger ceux-ci.
 
 \section{Initialiser l'environnement}
-
-
+La première erreur qui apparaissait après le démarrage des tests était l'échec
+de l'inférence du type \texttt{type}. Nous regardons donc la figure de la
+donnée indiquant les règles de typage bidirectionnelles du langage surface et
+on s'apeçoit que la règle suivante semble s'appliquer à notre situation:
+\begin{equation*}
+    \frac {\Gamma(x) = e} {\Gamma \vdash x \Rightarrow e}
+\end{equation*}
+Nous avions donc rajouté une règle d'inférence supplémentaire comme-ci:
+\begin{lstlisting}
+% Regle 1
+infer(Env, X, X, T) :-
+    member(X : T, Env).
+\end{lstlisting}
+Cela a donc permis l'élaboration de l'environnement des types \texttt{int},
+\texttt{float} et \texttt{bool}. Nous avions continué cette approche pour les
+autres types en ajoutant, au fur et à mesure, les règles nécessaires pour le
+passage de ces tests. Pour le type du \texttt{if}, il nous a été nécessaire
+d'ajouter un cas supplémentaire dans nos règles d'expansion comme suit:
+\begin{lstlisting}
+expand(forall(X, B), forall(X, _, B)).
+\end{lstlisting}
+Cela nous a permis de faire passer le test pour \texttt{if}. Un problème est
+ensuite survenu pour \texttt{nil}, où on avait affair pour la première fois
+à une construction de \texttt{functor}. Il nous fallait la décomposer en
+langage interne en ajoutant un cas supplémentaire à \texttt{expand}. Il nous a
+été nécessaire d'écrire plusieurs versions de ce cas après plusieurs tests
+individuelles pour finalement arriver à cette forme:
+\begin{lstlisting}
+expand(Fa, app(Fb, AL)) :-
+    Fa =.. [N | AS],
+    \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
+    length(AS, L),
+    L \= 0,
+    functor(Fa, N, L),
+    last(AS, AL),
+    append(AI, [AL], AS),
+    Fb =.. [N | AI].
+\end{lstlisting}
+Après cela, le cas particulier du type de \texttt{cons}, qui prend une liste de
+paramètres nous a donc inciter à modifier notre définition d'expansion d'un
+\texttt{forall} de sorte à l'élaborer en des \texttt{forall} currifiés:
+\begin{lstlisting}
+expand(forall(X, B), F) :-
+    (X = [T | TS], TS \= [] ->
+            F = forall(T, _, forall(TS, B));
+            (X = [A] ->
+                F = forall(A, _, B);
+                F = forall(X, _, B))).
+\end{lstlisting}
+Suite à cette modification et à d'autres ajouts de règles de typages,
+l'initialisation de l'environnement était complète.
+\section{Test d'expressions}
 \end{document}
