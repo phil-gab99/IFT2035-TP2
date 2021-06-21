@@ -210,16 +210,16 @@ expand(forall(X, B), F) :-
                 F = forall(X, _, B))).
 expand(let([D = V | DS], B), LX) :-
     (D = (X : T) ->
-        (T =.. [forall | _] ->
-            (functor(X, X, 0) ->
-                (DS = [] ->
-                    LX = let(X, T, fun(_, V), B);
-                    LX = let(X, T, fun(_, V), let(DS, B)));
-                X =.. [N | AS],
-                convertFun(AS, V, F),
-                (DS = [] ->
-                    LX = let(N, T, fun(_, F), B);
-                    LX = let(N, T, fun(_, F), let(DS, B))));
+        % (T =.. [forall | _] ->
+        %     (functor(X, X, 0) ->
+        %         (DS = [] ->
+        %             LX = let(X, T, fun(_, V), B);
+        %             LX = let(X, T, fun(_, V), let(DS, B)));
+        %         X =.. [N | AS],
+        %         convertFun(AS, V, F),
+        %         (DS = [] ->
+        %             LX = let(N, T, fun(_, F), B);
+        %             LX = let(N, T, fun(_, F), let(DS, B))));
             (functor(X, X, 0) ->
                 (DS = [] ->
                     LX = let(X, T, V, B);
@@ -228,7 +228,7 @@ expand(let([D = V | DS], B), LX) :-
                 convertFun(AS, V, F),
                 (DS = [] ->
                     LX = let(N, T, F, B);
-                    LX = let(N, T, F, let(DS, B)))));
+                    LX = let(N, T, F, let(DS, B))));
         D =.. [N | AS],
         (AS = [] ->
             (DS = [] ->
@@ -238,14 +238,15 @@ expand(let([D = V | DS], B), LX) :-
             (DS = [] ->
                 LX = let(N, F, B);
                 LX = let(N, F, let(DS,B))))).
-expand(Fcall, App) :-
-    Fcall =.. [N | AS],
+expand(Fa, app(Fb, AL)) :-
+    Fa =.. [N | AS],
     \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
     length(AS, L),
     L \= 0,
-    functor(Fcall, N, L),
-    append([N], AS, F),
-    curryCall(F, App).
+    functor(Fa, N, L),
+    last(AS, AL),
+    append(AI, [AL], AS),
+    Fb =.. [N | AI].
 
 %% convertFun(+AS, +V, -F)
 convertFun([], V, V).
@@ -254,13 +255,6 @@ convertFun([A | AS], V, F) :-
     (A = (X : T) ->
         F = fun(X, T, B);
         F = fun(A, B)).
-
-%% curryCall(+functor, -app(F, A))
-curryCall([F, A], app(F, A)).
-curryCall(F ,app(App, A)) :-
-    last(F, A),
-    append(AS, [A], F),
-    curryCall(AS, App).
 
 %% coerce(+Env, +E1, +T1, +T2, -E2)
 %% Transforme l'expression E1 (qui a type T1) en une expression E2 de type T2.
@@ -273,6 +267,7 @@ coerce(Env, E, T1, T2, E) :-
 % Fig 2 - Règle 12
 coerce(Env, E1, forall(X, _, E3), T, app(E1, E4)) :-
     subst(Env, X, E4, E3, T).
+    % coerce(Env, , E3, )
 
 % Fig 2 - Règle 13
 coerce(_, E1, int, float, app(int_to_float, E1)).
@@ -315,9 +310,9 @@ infer(Env, fun(X, E1a, E2a), fun(X, E1b, E2b), arw(X, E1b, E3)) :-
 % Fig 2 - Règle 7
 infer(Env, let(X, E1a, E2a, E3a), let(X, E1b, E2b, E3b), E4) :-
     check(Env, E1a, type, E1b),
-    (E1b = forall(A, B, C) ->
-        check([(X : E1b) | Env], E2a, arw(A, B, C), E2b);
-        check([(X : E1b) | Env], E2a, E1b, E2b)),
+    % (E1b = forall(A, B, C) ->
+    %     check([(X : E1b) | Env], E2a, arw(A, B, C), E2b);
+        check([(X : E1b) | Env], E2a, E1b, E2b),
     infer([(X : E1b) | Env], E3a, E3b, E4).
 
 % Fig 2 - Règle 8
@@ -336,9 +331,9 @@ check(_Env, MV, _, Eo) :-
     %% On ne fait pas l'effort de se souvenir du type des métavariables,
     %% donc on ne peut pas vérifier si MV a effectivement le type attendu.
     %% À la place, on accepte n'importe quel usage de métavariables, en
-    %% espérant qu'elles sont utilisées correctement.  C'est généralement le
-    %% cas de toute façon, et pour les cas restants on se repose sur le filet
-    %% de sécurité qu'est `verify`.
+    %% espérant qu'elles sont utilisées correctement. C'est généralement le cas
+    %% de toute façon, et pour les cas restants on se repose sur le filet de
+    %% sécurité qu'est `verify`.
     var(MV), !, Eo = MV.
 check(Env, Ei, T, Eo) :-
     expand(Ei, Ei1),
@@ -399,9 +394,9 @@ initenv(Env) :-
 % sample(1 + 2).
 % sample(1 / 2).
 % sample(let([add(x:int,y:int)=x+y, div(x:float,y:float)=x/y], div(add(3,2), 5))).
-% sample(let([identity(x) : (forall(t, (t -> t))) = x], identity(3))).
+sample(let([identity : (forall(t, (t -> t))) = fun(x,x)], identity(3))).
 % sample(if(1 < 2, 1, 2)).
-sample(cons(13,nil)). % Test fails here
+sample(cons(int, 0, 13,nil)). % Test fails here
 sample(cons(1.0, cons(2.0, nil))).
 % sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],fact(44))).
 % sample(let([fact(n) : (int -> int) = if(n < 2, 1, n * fact(n - 1))],fact(45))).
