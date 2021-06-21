@@ -246,7 +246,14 @@ expand(let([D = V | DS], B), LX) :-
                 LX = let(N, F, B);
                 LX = let(N, F, let(DS,B))))).
 
-
+expand(Fcall, App) :-
+    Fcall =.. [N | AS],
+    \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
+    length(AS, L),
+    L \= 0,
+    functor(Fcall, N, L),
+    append([N], AS, F),
+    curryCall(F, App).
 
 %% convertFun(+AS, +V, -F)
 convertFun([], V, V).
@@ -389,16 +396,7 @@ coerce(_, E1, int, bool, app(int_to_bool, E1)).
 %% Élabore Ei (dans un contexte Env) en Eo et infère son type T.
 infer(_, MV, MV, _) :- var(MV), !.            %Une expression encore inconnue.
 
-infer(Env, Ei, Eo, T) :- 
-
-expand(Ei, Ei1), infer(Env, Ei1, Eo, T);
-Ei =.. [N,Arg], member((N:TF),Env), TF =.. [F|_],
- F = forall(_,_,_) -> infer(Env,Arg,Arg,T1), expandApp1(N,[T1,Arg],Ei1),infer(Env,Ei1,Eo,T);
- expandApp(Ei,Ei1),infer(Env,Ei1,Eo,T).
- 
-    
-
-
+infer(Env, Ei, Eo, T) :- expand(Ei, Ei1), infer(Env, Ei1, Eo, T).
 infer(_, X, X, int) :- integer(X).
 infer(_, X, X, float) :- float(X).
 infer(Env, (Ei : T), Eo, T1) :-
@@ -407,9 +405,7 @@ infer(Env, (Ei : T), Eo, T1) :-
 
 % Fig 2 - Règle 6
 infer(Env, app(E1a, E2a), app(E1b, E2b), T) :-
-    (member((E1a : forall(_, _, _)), Env) ->
-        infer(Env, E1a, E1b, forall(X, E4, E5));
-        infer(Env, E1a, E1b, arw(X, E4, E5))),
+    infer(Env, E1a, E1b, arw(X, E4, E5)),
     check(Env, E2a, E4, E2b),
     subst(Env, X, E2b, E5, T).
 
@@ -442,25 +438,26 @@ infer(Env, let(X, E2a, E3a), let(X, E1, E2b, E3b), E4) :-
     infer([(X : E1) | Env], E3a, E3b, E4).
 
 % Fig 2 - Règle 1
-infer(Env, X, X, T) :-
-    member((X : T), Env).
+infer(Env, Ei, Eo, T) :-
+    member((Ei : Ti), Env),
+    coerce(Env, Ei, Ti, T, Eo).
 
-expandApp1(N,AS,App) :-
-    \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
-    length(AS, L),
-    L \= 0,
-    % functor(Fcall, N, L),
-    append([N], AS, F),
-    curryCall(F, App).  
-
-expandApp(Fcall, App) :-
-    Fcall =.. [N | AS],
-    \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
-    length(AS, L),
-    L \= 0,
-    functor(Fcall, N, L),
-    append([N], AS, F),
-    curryCall(F, App).    
+% expandApp1(N,AS,App) :-
+%     \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
+%     length(AS, L),
+%     L \= 0,
+%     % functor(Fcall, N, L),
+%     append([N], AS, F),
+%     curryCall(F, App).  
+% 
+% expandApp(Fcall, App) :-
+%     Fcall =.. [N | AS],
+%     \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
+%     length(AS, L),
+%     L \= 0,
+%     functor(Fcall, N, L),
+%     append([N], AS, F),
+%     curryCall(F, App).    
 %% !!!À COMPLÉTER!!!
 
 %% check(+Env, +Ei, +T, -Eo)
@@ -534,13 +531,13 @@ initenv(Env) :-
 %% Quelques expressions pour nos tests.
 % sample(1 + 2).
 % sample(1 / 2).
-sample(let([add(x:int,y:int)=x+y, div(x:float,y:float)=x/y], div(add(3,2), 5))).
-sample(let([identity(x) : (forall(t, (t -> t))) = x], identity(3))). % Test fails here
-sample(if(1 < 2, 1, 2)).
-sample(cons(13,nil)).
+% sample(let([add(x:int,y:int)=x+y, div(x:float,y:float)=x/y], div(add(3,2), 5))).
+% sample(let([identity(x) : (forall(t, (t -> t))) = x], identity(3))).
+% sample(if(1 < 2, 1, 2)).
+sample(cons(13,nil)). % Test fails here
 sample(cons(1.0, cons(2.0, nil))).
-sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],fact(44))).
-sample(let([fact(n) : (int -> int) = if(n < 2, 1, n * fact(n - 1))],fact(45))).
+% sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],fact(44))).
+% sample(let([fact(n) : (int -> int) = if(n < 2, 1, n * fact(n - 1))],fact(45))).
 sample(let(
     [list1 : forall(a, (a -> list(a, 1))) = fun(x, cons(x, nil))],list1(42))).
 sample(let(
