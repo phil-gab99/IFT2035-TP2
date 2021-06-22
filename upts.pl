@@ -317,7 +317,7 @@ infer(Env, let(X, E1a, E2a, E3a), let(X, E1b, E2b, E3b), E4) :-
     (E1b = forall(A, B, C) ->
         check([X : E1b | Env], E2a, arw(A, B, C), E2b);
         check([X : E1b | Env], E2a, E1b, E2b)),
-    infer([(X : E1b) | Env], E3a, E3b, E4).
+    infer([X : E1b | Env], E3a, E3b, E4).
 
 % Règle 8
 infer(Env, let(X, E2a, E3a), let(X, E1, E2b, E3b), E4) :-
@@ -325,9 +325,9 @@ infer(Env, let(X, E2a, E3a), let(X, E1, E2b, E3b), E4) :-
     infer([X : E1 | Env], E3a, E3b, E4).
 
 % Règle 1
-infer(Env, Ei, Eo, T) :-
-    member((Ei : Ti), Env),
-    coerce(Env, Ei, Ti, T, Eo).
+infer(Env, Xa, Xb, Tb) :-
+    member(Xa : Ta, Env),
+    coerce(Env, Xa, Ta, Tb, Xb).
 
 %% check(+Env, +Ei, +T, -Eo)
 %% Élabore Ei (dans un contexte Env) en Eo, en s'assurant que son type soit T.
@@ -350,7 +350,7 @@ check(Env, E1a, E3, E1b) :-
 
 % Règle 11
 check(Env, E1a, forall(X, E2, E3), E1b) :-
-    check([(X : E2) | Env], E1a, E3, E1b).
+    check([X : E2 | Env], E1a, E3, E1b).
 
 % Règle 3
 check(Env, fun(X, E2a), arw(_, E1, E3), fun(X, E1, E2b)) :-
@@ -392,15 +392,14 @@ initenv(Env) :-
         Env).
 % infer([type : type,int : type,float : type,bool : type,int_to_float : arw(dummy_16, int, float),int_to_bool : arw(dummy_17, int, bool),list : arw(dummy_18, type, arw(dummy_19, int, type)),(+) : arw(dummy_1, int, arw(dummy_2, int, int)),(-) : arw(dummy_3, int, arw(dummy_4, int, int)),(*) : arw(dummy_5, int, arw(dummy_6, int, int)),(/) : arw(dummy_7, float, arw(dummy_8, float, float)),(<) : arw(dummy_9, float, arw(dummy_10, float, int)),if : forall(t, type, arw(dummy_11, bool, arw(dummy_12, t, arw(dummy_13, t, t)))),nil : forall(t, type, app(app(list, t), 0)),cons : forall(t, type, (forall(n, int, arw(dummy_14, t, arw(dummy_15, app(app(list,t), n), app(app(list,t), app(app(+, n), 1)))))))], cons(13, nil), E, T).
 
-% check([add:arw(dummy_1126, int, arw(dummy_1127, int, int)),type : type,int : type,float : type,bool : type,int_to_float : arw(dummy_16, int, float),int_to_bool : arw(dummy_17, int, bool),list : arw(dummy_18, type, arw(dummy_19, int, type)),(+) : arw(dummy_1, int, arw(dummy_2, int, int)),(-) : arw(dummy_3, int, arw(dummy_4, int, int)),(*) : arw(dummy_5, int, arw(dummy_6, int, int)),(/) : arw(dummy_7, float, arw(dummy_8, float, float)),(<) : arw(dummy_9, float, arw(dummy_10, float, int)),if : forall(t, type, arw(dummy_11, bool, arw(dummy_12, t, arw(dummy_13, t, t)))),nil : forall(t, type, app(app(list, t), 0)),cons : forall(t, type, (forall(n, int, arw(dummy_14, t, arw(dummy_15, app(app(list,t), n), app(app(list,t), app(app(+, n), 1)))))))], fun(x, fun(y, x + y)), arw(dummy_1126, int, arw(dummy_1127, int, int)), X).
+% check([type : type,int : type,float : type,bool : type,int_to_float : arw(dummy_16, int, float),int_to_bool : arw(dummy_17, int, bool),list : arw(dummy_18, type, arw(dummy_19, int, type)),(+) : arw(dummy_1, int, arw(dummy_2, int, int)),(-) : arw(dummy_3, int, arw(dummy_4, int, int)),(*) : arw(dummy_5, int, arw(dummy_6, int, int)),(/) : arw(dummy_7, float, arw(dummy_8, float, float)),(<) : arw(dummy_9, float, arw(dummy_10, float, int)),if : forall(t, type, arw(dummy_11, bool, arw(dummy_12, t, arw(dummy_13, t, t)))),nil : forall(t, type, app(app(list, t), 0)),cons : forall(t, type, (forall(n, int, arw(dummy_14, t, arw(dummy_15, app(app(list,t), n), app(app(list,t), app(app(+, n), 1)))))))], nil, forall(t, type, app(app(list, t), 0)), X).
 
 %% Quelques expressions pour nos tests.
 % sample(1 + 2).
 % sample(1 / 2).
-% sample(let([add(x:int,y:int)=x+y, div(x:float,y:float)=x/y], div(add(3,2), 5))).
-% sample(let([identity : (arw(t, type, (t -> t))) = fun(t,fun(x,x))], identity(int, 3))).
-sample(if(1 < 2, 1, 2)).
-sample(nil).
+% sample(if(1 < 2, 1, 2)).
+% sample(if(1 < 2, nil, nil)).
+sample(nil). % app(nil, t) % nil
 sample(cons(13,nil)). % Test fails here
 sample(cons(1.0, cons(2.0, nil))).
 sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],fact(44))).
