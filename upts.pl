@@ -264,17 +264,14 @@ coerce(Env, E, T1, T2, E) :-
     normalize(Env, T2, T2n),
     T1n = T2n.        %T1 = T2: rien à faire!
 
-% Règle 12
-coerce(Env, E1a, forall(X, _, E3), T, app(E1b, E4)) :-
-    (E3 = forall(_, _, _) ->
-        coerce(Env, E1a, E3, arw(_, _, _), E1b);
-        E1b = E1a,
-        subst(Env, X, E4, E3, T)).
+% Coercion du forall
+coerce(Env, E1, forall(X, _, E3a), E3b, app(E1, E4)) :-
+    subst(Env, X, E4, E3a, E3b).
 
-% Règle 13
+% Coercion int_to_float
 coerce(_, E1, int, float, app(int_to_float, E1)).
 
-% Règle 14
+% Coercion int_to_bool
 coerce(_, E1, int, bool, app(int_to_bool, E1)).
 
 %% infer(+Env, +Ei, -Eo, -T)
@@ -290,11 +287,14 @@ infer(Env, (Ei : T), Eo, T1) :-
     check(Env, T, type, T1),
     check(Env, Ei, T1, Eo).
 
-% Règle 6
-infer(Env, app(E1a, E2a), app(E1b, E2b), T) :-
-    infer(Env, E1a, E1b, arw(X, E4, E5)),
-    check(Env, E2a, E4, E2b),
-    subst(Env, X, E2b, E5, T).
+% Règle 1
+infer(Env, X, X, T) :-
+    member(X : T, Env).
+
+% Règle 2
+infer(Env, fun(X, E1a, E2a), fun(X, E1b, E2b), arw(X, E1b, E3)) :-
+    check(Env, E1a, type, E1b),
+    infer([X : E1b | Env], E2a, E2b, E3).
 
 % Règle 4
 infer(Env, arw(X, E1a, E2a), arw(X, E1b, E2b), type) :-
@@ -306,10 +306,11 @@ infer(Env, forall(X, E1a, E2a), forall(X, E1b, E2b), type) :-
     check(Env, E1a, type, E1b),
     check([X : E1b | Env], E2a, type, E2b).
 
-% Règle 2
-infer(Env, fun(X, E1a, E2a), fun(X, E1b, E2b), arw(X, E1b, E3)) :-
-    check(Env, E1a, type, E1b),
-    infer([X : E1b | Env], E2a, E2b, E3).
+% Règle 6
+infer(Env, app(E1a, E2a), app(E1b, E2b), E5b) :-
+    infer(Env, E1a, E1b, arw(X, E4, E5a)),
+    check(Env, E2a, E4, E2b),
+    subst(Env, X, E2b, E5a, E5b).
 
 % Règle 7
 infer(Env, let(X, E1a, E2a, E3a), let(X, E1b, E2b, E3b), E4) :-
@@ -324,10 +325,32 @@ infer(Env, let(X, E2a, E3a), let(X, E1, E2b, E3b), E4) :-
     infer([X : E1 | Env], E2a, E2b, E1),
     infer([X : E1 | Env], E3a, E3b, E4).
 
-% Règle 1
-infer(Env, Xa, Xb, Tb) :-
-    member(Xa : Ta, Env),
-    coerce(Env, Xa, Ta, Tb, Xb).
+% Règle 12
+infer(Env, E1a, Eo, float) :-
+    (infer(Env, E1a, E1b, int) ->
+        coerce(Env, E1b, int, float, Eo)).
+
+% Règle 13
+infer(Env, E1a, Eo, bool) :-
+    (infer(Env, E1a, E1b, int) ->
+        coerce(Env, E1b, int, bool, Eo)).
+
+% Règle 14
+infer(Env, E1, Eo, E3b) :-
+    (member(E1 : forall(X, E2, E3a), Env) ->
+        forallRec(Env, E1, forall(X, E2, E3a), Eo, E3b)).
+        % E3a =.. forall(_, _, B) -> infer(Env, E1, Eo, )
+        % subst(Env, X, _, E3a, E3b),
+        % % write(E1 +" is of type "+ forall(X, E2, E3a)),
+        % coerce(Env, E1, forall(X, E2, E3a), E3b, Eo)).
+
+forallRec(Env, E1, forall(X, E2, E3a), Eo, E3b) :-
+    (E3a = forall(Xi, E2i, E3ai) ->
+        forallRec(Env, E1, forall(X, E2, E3ai), Eoi, E3bi),
+        forallRec(Env, Eoi, forall(Xi, E2i, E3bi), Eo, E3b);
+        % write(Eo);
+        subst(Env, X, _, E3a, E3b),
+        coerce(Env, E1, forall(X, E2, E3a), E3b, Eo)).
 
 %% check(+Env, +Ei, +T, -Eo)
 %% Élabore Ei (dans un contexte Env) en Eo, en s'assurant que son type soit T.
@@ -343,6 +366,10 @@ check(Env, Ei, T, Eo) :-
     expand(Ei, Ei1),
     check(Env, Ei1, T, Eo).
 
+% Règle 3
+check(Env, fun(X, E2a), arw(_, E1, E3), fun(X, E1, E2b)) :-
+    check([X : E1 | Env], E2a, E3, E2b).
+
 % Règle 10
 check(Env, E1a, E3, E1b) :-
     infer(Env, E1a, E1b, E2),
@@ -351,10 +378,6 @@ check(Env, E1a, E3, E1b) :-
 % Règle 11
 check(Env, E1a, forall(X, E2, E3), E1b) :-
     check([X : E2 | Env], E1a, E3, E1b).
-
-% Règle 3
-check(Env, fun(X, E2a), arw(_, E1, E3), fun(X, E1, E2b)) :-
-    check([X : E1 | Env], E2a, E3, E2b).
 
 %% Finalement, cas par défaut:
 check(Env, Ei, T, Eo) :-
@@ -397,14 +420,13 @@ initenv(Env) :-
 %% Quelques expressions pour nos tests.
 % sample(1 + 2).
 % sample(1 / 2).
+% sample(let([identity : (forall(t, (t -> t))) = fun(x,x)], identity(3))).
 % sample(if(1 < 2, 1, 2)).
-% sample(if(1 < 2, nil, nil)).
-sample(nil). % app(nil, t) % nil
-sample(cons(13,nil)). % Test fails here
-sample(cons(1.0, cons(2.0, nil))).
-sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],fact(44))).
-sample(let([fact(n) : (int -> int) = if(n < 2, 1, n * fact(n - 1))],fact(45))).
-sample(let(
+% sample(cons(13,nil)).
+% sample(cons(1.0, cons(2.0, nil))).
+% sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],fact(44))).
+% sample(let([fact(n) : (int -> int) = if(n < 2, 1, n * fact(n - 1))],fact(45))).
+sample(let( % Test fails here
     [list1 : forall(a, (a -> list(a, 1))) = fun(x, cons(x, nil))],list1(42))).
 sample(let(
     [list1(x) : forall(a, (a -> list(a, 1))) = cons(x, nil)],list1(43))).
