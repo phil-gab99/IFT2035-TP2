@@ -216,7 +216,8 @@ expand(forall(X, B), F) :-
 % Expansion - let
 expand(let([D = V | DS], B), LX) :-
     (D = (X : T) ->
-        (T =.. [forall, PS | _] ->
+        (T =.. [forall | _] ->
+            getImpArgs(T, [], PS),
             (functor(X, X, 0) ->
                 (DS = [] ->
                     LX = let(X, T, fun(PS, V), B);
@@ -259,6 +260,35 @@ expand(Fa, app(Fb, AL)) :-
     last(AS, AL),
     append(AI, [AL], AS),
     Fb =.. [N | AI].
+
+%% getImpArgs(+arw(_, _, B), +PSa, -PSb)
+%% getImpArgs(+forall(X, B), +PSa, -PSb)
+%% getImpArgs(+forall(X, _, B), +PSa, -PSb)
+%% Permet d'obtenir les paramètres implicites présents dans les déclarations de
+%% type forall.
+%% Traite également des forall curifiés ainsi que des arw et forall imbriqués.
+getImpArgs(arw(_, _, B), PSa, PSb) :-
+    ((B =.. [forall | _]; B =.. [arw | _]) ->
+        getImpArgs(B, PSa, PSb);
+        PSb = PSa).
+getImpArgs(forall(X, B), PSa, PSb) :-
+    ((B =.. [forall | _]; B =.. [arw | _]) ->
+        ((X = [_ | _]) ->
+            append(PSa, X, PSa1);
+            append(PSa, [X], PSa1)),
+            getImpArgs(B, PSa1, PSb);
+        ((X = [_ | _]) ->
+            append(PSa, X, PSb);
+            append(PSa, [X], PSb))).
+getImpArgs(forall(X, _, B), PSa, PSb) :-
+    ((B =.. [forall | _]; B =.. [arw | _]) ->
+        ((X = [_ | _]) ->
+            append(PSa, X, PSa1);
+            append(PSa, [X], PSa1)),
+            getImpArgs(B, PSa1, PSb);
+        ((X = [_ | _]) ->
+            append(PSa, X, PSb);
+            append(PSa, [X], PSb))).
 
 %% convertFun(+AS, +V, -F)
 %% Utilisé pour convertir le sucre syntaxique dans les déclarations d'un let en
@@ -323,9 +353,8 @@ infer(Env, app(E1a, E2a), app(E1b, E2b), E5b) :-
 % Règle 7
 infer(Env, let(X, E1a, E2a, E3a), let(X, E1b, E2b, E3b), E4) :-
     check(Env, E1a, type, E1b),
-    (E1b = forall(A, B, C) ->
-        check([X : E1b | Env], E2a, arw(A, B, C), E2b);
-        check([X : E1b | Env], E2a, E1b, E2b)),
+    forall2arw(E1b, Eo),
+    check([X : E1b | Env], E2a, Eo, E2b),
     infer([X : E1b | Env], E3a, E3b, E4).
 
 % Règle 8
@@ -339,25 +368,40 @@ infer(Env, (Ei : T), Eo, T1) :-
     check(Env, Ei, T1, Eo).
 
 % Règle 12
+infer(Env, E1, Eo, E3b) :-
+    (member(E1 : forall(X, E2, E3a), Env) ->
+        forallRec(Env, E1, forall(X, E2, E3a), Eo, E3b)).
+
+% Règle 13
 infer(Env, E1a, Eo, float) :-
     (infer(Env, E1a, E1b, int) ->
         coerce(Env, E1b, int, float, Eo)).
 
-% Règle 13
+% Règle 14
 infer(Env, E1a, Eo, bool) :-
     (infer(Env, E1a, E1b, int) ->
         coerce(Env, E1b, int, bool, Eo)).
 
-% Règle 14
-infer(Env, E1, Eo, E3b) :-
-    (member(E1 : forall(X, E2, E3a), Env) ->
-        forallRec(Env, E1, forall(X, E2, E3a), Eo, E3b)).
+%% forall2arw(+forall(X, T, Ba), -arw(X, T, Bb))
+%% forall2arw(+arw(X, T, Ba), -arw(X, T, Bb))
+%% Permet de convertir une construction forall en une construction arw
+%% équivalente.
+%% Traite également des forall curifiés ainsi que des arw et forall imbriqués.
+forall2arw(forall(X, T, Ba), arw(X, T, Bb)) :-
+    ((Ba = forall(_, _, _); Ba = arw(_, _, _)) ->
+            forall2arw(Ba, Bb);
+            Bb = Ba).
+
+forall2arw(arw(X, T, Ba), arw(X, T, Bb)) :-
+    ((Ba = forall(_, _, _); Ba = arw(_, _, _)) ->
+            forall2arw(Ba, Bb);
+            Bb = Ba).
 
 %% forallRec(+Env, +E1, +forall(+X, +E2, +E3a), -Eo, -E3b)
 %% Utilisé pour appliquer la coercion du forall pour une expression E1 de type
 %% forall(X, E2, E3a), dont le type après coercion est E3b et l'expansion
 %% appropriée est Eo.
-%% Traite également des forall curifiés
+%% Traite également des forall curifiés.
 forallRec(Env, E1, forall(X, E2, E3a), Eo, E3b) :-
     (E3a = forall(Xi, E2i, E3ai) ->
         forallRec(Env, E1, forall(X, E2, E3ai), Eoi, E3bi),
@@ -432,7 +476,7 @@ sample(cons(13,nil)).
 sample(cons(1.0, cons(2.0, nil))).
 sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],fact(44))).
 sample(let([fact(n) : (int -> int) = if(n < 2, 1, n * fact(n - 1))],fact(45))).
-sample(let( % Test fails here
+sample(let(
     [list1 : forall(a, (a -> list(a, 1))) = fun(x, cons(x, nil))],list1(42))).
 sample(let(
     [list1(x) : forall(a, (a -> list(a, 1))) = cons(x, nil)],list1(43))).

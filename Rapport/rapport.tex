@@ -13,7 +13,8 @@
 \definecolor{gray}{rgb}{0.5,0.5,0.5}
 \definecolor{mauve}{rgb}{0.58,0,0.82}
 
-\lstset{frame=tb,
+\lstset{
+    frame=tb,
     language=Prolog,
     showstringspaces=false,
     columns=flexible,
@@ -21,6 +22,13 @@
     numbers=none,
     numberstyle=\tiny\color{gray},
     keywordstyle=\color{blue},
+    emph={infer, coerce, expand, check, forall2arw, convertFun, member, append,
+    forallRec, subst, sample, getImpArgs},
+    emphstyle=\color{blue},
+    emph={[2], Env, X, T, B, _, Fa, Fb, AL, N, AS, AI, TS, F, A, E1, E1a, E1b,
+    Eo, D, V, DS, LX, PS, DS, E2a, E2b, E3a, E3b, E4, Ba, Bb, E2, L, Xi, E2i,
+    E3ai, Eoi, E3bi, PSa, PSb, PSa1, o},
+    emphstyle={[2]\color{mauve}},
     commentstyle=\color{dkgreen},
     stringstyle=\color{mauve},
     breaklines=true,
@@ -58,7 +66,8 @@ entre elles en quelque sorte. Cela a rendu la tâche assez difficile au début.
 La technique que l'on a employé par après pour ce travail est une sorte de
 "Test-driven development" (tdd). On roulait les tests à l'aide de
 \texttt{test\_samples} en appliquant l'outil de déboguage \texttt{trace}
-qu'offre l'environnement de \texttt{prolog}. Cela nous permet de situer
+qu'offre l'environnement de \texttt{prolog} ainsi que la relation
+\texttt{write} à quelques emplacements clés. Cela nous permet de situer
 l'emplacement des échecs d'exécution et nous permet par la suite de
 corriger ceux-ci.
 
@@ -67,12 +76,11 @@ La première erreur qui apparaissait après le démarrage des tests était l'éc
 de l'inférence du type \texttt{type}. Nous regardons donc la figure de la
 donnée indiquant les règles de typage bidirectionnelles du langage surface et
 on s'apeçoit que la règle suivante semble s'appliquer à notre situation:
-\begin{equation*}
+\begin{equation}
     \frac {\Gamma(x) = e} {\Gamma \vdash x \Rightarrow e}
-\end{equation*}
+\end{equation}
 Nous avions donc rajouté une règle d'inférence supplémentaire comme-ci:
 \begin{lstlisting}
-% Regle 1
 infer(Env, X, X, T) :-
     member(X : T, Env).
 \end{lstlisting}
@@ -105,6 +113,7 @@ Après cela, le cas particulier du type de \texttt{cons}, qui prend une liste de
 paramètres nous a donc inciter à modifier notre définition d'expansion d'un
 \texttt{forall} de sorte à l'élaborer en des \texttt{forall} currifiés:
 \begin{lstlisting}
+% forall([x1, x2,...,xn], B) -> forall(x1, _, forall(x2, _, ...))
 expand(forall(X, B), F) :-
     (X = [T | TS], TS \= [] ->
             F = forall(T, _, forall(TS, B));
@@ -114,5 +123,191 @@ expand(forall(X, B), F) :-
 \end{lstlisting}
 Suite à cette modification et à d'autres ajouts de règles de typages,
 l'initialisation de l'environnement était complète.
+
 \section{Test d'expressions}
+Après que l'environnement fut proprement initialisé, nous avions tourné notre
+attention au passage des tests fournis. Le premier test \texttt{sample(1 + 2).}
+a passé avec succès d'après le code déjà implémenté. Le second test
+\texttt{sample(1 / 2).} passe également, mais nous nous sommes plus tard rendu
+compte d'un problème se présentant après ajout des règles d'inférences portant
+sur la coercion. Il fut donc nécessaire d'ajouter les relations suivantes:
+\begin{lstlisting}
+coerce(_, E1, int, float, app(int_to_float, E1)).
+
+infer(Env, E1a, Eo, float) :-
+    (infer(Env, E1a, E1b, int) ->
+        coerce(Env, E1b, int, float, Eo)).
+\end{lstlisting}
+
+À ce point, nous avions décidé d'ajouter la plupart des règles de typages, des
+expansions du langage, ainsi que coercions restantes. Pour la majorité d'entre
+eux, il existe une correspondance directe entre les règles de la figure 2 et
+les ajouts du langage surface sous forme de sucre syntaxique ainsi que du code.
+Il fut nécessaire par contre de modifier un peu la définition de certains
+d'entre eux pour satisfaire aux différentes occurrences de code retrouvées dans
+les tests et qui n'étaient pas explicitement décrits dans la donnée du travail.
+On indique ici certaines de ces modifications apportées. \\
+
+Une première est pour l'expansion du \texttt{forall} où le code gère également
+le cas où une liste de paramètres implicites est passée (ex.: le type de
+\texttt{cons}). Cette modification a déjà été expliqué dans la section
+précédente. \\
+
+Une seconde est dans le cas de l'expansion d'une expression \texttt{let} où il
+a été nécessaire, dans le cas de déclarations de type \texttt{forall},
+d'expliciter l'argument implicite comme suit:
+\begin{lstlisting}
+expand(let([D = V | DS], B), LX) :-
+    (D = (X : T) ->
+        (T =.. [forall | _] -> % Presence d'argument implicites
+            getImpArgs(T, [], PS),
+            (functor(X, X, 0) ->
+                (DS = [] ->
+                    LX = let(X, T, fun(PS, V), B);
+                    LX = let(X, T, fun(PS, V), let(DS, B)));
+                X =.. [N | AS],
+                convertFun(AS, V, F),
+                (DS = [] ->
+                    LX = let(N, T, fun(PS, F), B);
+                    LX = let(N, T, fun(PS, F), let(DS, B))));
+            (functor(X, X, 0) ->
+                (DS = [] ->
+                    LX = let(X, T, V, B);
+                    LX = let(X, T, V, let(DS, B)));
+                X =.. [N | AS],
+                convertFun(AS, V, F),
+                (DS = [] ->
+                    LX = let(N, T, F, B);
+                    LX = let(N, T, F, let(DS, B)))));
+        D =.. [N | AS],
+        (AS = [] ->
+            (DS = [] ->
+                LX = let(N, V, B);
+                LX = let(N, V, let(DS, B)));
+            convertFun(AS, V, F),
+            (DS = [] ->
+                LX = let(N, F, B);
+                LX = let(N, F, let(DS,B))))).
+\end{lstlisting}
+
+Cette remarque nous a ensuite mené à réaliser que, tout comme pour
+\texttt{forall} où il est possible d'indiquer une liste de paramètres
+implicites, de même il en est pour une \texttt{fun}:
+\begin{lstlisting}
+% fun([x1, x2,...,xn], B) -> fun(x1, fun(x2, ...))
+expand(fun([], V), V).
+expand(fun([A | AS], V), fun(A, fun(AS, V))).
+\end{lstlisting}
+
+Les relations \texttt{getImpArgs} et \texttt{convertFun} employées ici nous
+permettent de traiter des cas où il y a présence d'arguments implicites dans
+l'un et où il y a des paramètres directement au nom de la fonction sous forme
+de \texttt{functor} dans l'autre:
+\begin{lstlisting}
+getImpArgs(arw(_, _, B), PSa, PSb) :-
+    ((B =.. [forall | _]; B =.. [arw | _]) ->
+        getImpArgs(B, PSa, PSb);
+        PSb = PSa).
+getImpArgs(forall(X, B), PSa, PSb) :-
+    ((B =.. [forall | _]; B =.. [arw | _]) ->
+        ((X = [_ | _]) ->
+            append(PSa, X, PSa1);
+            append(PSa, [X], PSa1)),
+            getImpArgs(B, PSa1, PSb);
+        ((X = [_ | _]) ->
+            append(PSa, X, PSb);
+            append(PSa, [X], PSb))).
+getImpArgs(forall(X, _, B), PSa, PSb) :-
+    ((B =.. [forall | _]; B =.. [arw | _]) ->
+        ((X = [_ | _]) ->
+            append(PSa, X, PSa1);
+            append(PSa, [X], PSa1)),
+            getImpArgs(B, PSa1, PSb);
+        ((X = [_ | _]) ->
+            append(PSa, X, PSb);
+            append(PSa, [X], PSb))).
+
+convertFun([], V, V).
+convertFun([A | AS], V, F) :-
+    convertFun(AS, V, B),
+    (A = (X : T) ->
+        F = fun(X, T, B);
+        F = fun(A, B)).
+\end{lstlisting}
+
+Un autre changement apporté survient à la règle 7 de la figure 2. Comme il a
+été mentionné plus haut, le \texttt{forall} dans les déclarations vient ici
+apporter un ou des arguments implicites à la fonction. On retrouve donc ceci:
+\begin{lstlisting}
+infer(Env, let(X, E1a, E2a, E3a), let(X, E1b, E2b, E3b), E4) :-
+    check(Env, E1a, type, E1b),
+    forall2arw(E1b, Eo),
+    check([X : E1b | Env], E2a, Eo, E2b),
+    infer([X : E1b | Env], E3a, E3b, E4).
+\end{lstlisting}
+Cette modification est introduite avant la vérification de \texttt{E2}. L'idée
+est de transformer une structure \texttt{forall} en \texttt{arw} de sorte à
+empêcher la règle 11 d'interférer dans un tel cas où les arguments implicites
+sont pris en compte:
+\begin{equation}
+    \frac {\Gamma,x : e_2 \vdash e_1 \Leftarrow e_3}
+    {\Gamma \vdash e1 \Leftarrow \texttt{forall}(x, e_2, e_3)} \tag{11}
+\end{equation}
+La relation \texttt{forall2arw} est une simple récursion visant à éliminer les
+\texttt{forall} présents dans le corps d'une expression \texttt{forall} ou
+\texttt{arw}:
+\begin{lstlisting}
+forall2arw(forall(X, T, Ba), arw(X, T, Bb)) :-
+    ((Ba = forall(_, _, _); Ba = arw(_, _, _)) ->
+            forall2arw(Ba, Bb);
+            Bb = Ba).
+
+forall2arw(arw(X, T, Ba), arw(X, T, Bb)) :-
+    ((Ba = forall(_, _, _); Ba = arw(_, _, _)) ->
+            forall2arw(Ba, Bb);
+            Bb = Ba).
+\end{lstlisting}
+
+Finalement, le dernier changement par rapport à la donnée est le traitement
+relatif à la coercion du \texttt{forall}. Le code s'agit simplement de ceci:
+\begin{lstlisting}
+infer(Env, E1, Eo, E3b) :-
+    (member(E1 : forall(X, E2, E3a), Env) ->
+        forallRec(Env, E1, forall(X, E2, E3a), Eo, E3b)).
+\end{lstlisting}
+La relation auxiliaire \texttt{forallRec} s'occupe de bien décomposer les
+\texttt{forall} récursifs pour leur appliquer par la suite la coercion du 
+\texttt{forall}:
+\begin{lstlisting}
+forallRec(Env, E1, forall(X, E2, E3a), Eo, E3b) :-
+    (E3a = forall(Xi, E2i, E3ai) ->
+        forallRec(Env, E1, forall(X, E2, E3ai), Eoi, E3bi),
+        forallRec(Env, Eoi, forall(Xi, E2i, E3bi), Eo, E3b);
+        subst(Env, X, _, E3a, E3b),
+        coerce(Env, E1, forall(X, E2, E3a), E3b, Eo)).
+\end{lstlisting}
+
+Cela vient conclure les détails de l'implémentation et, à ce stade, le langage
+semble avoir été bien et complètement implémenté et tous les tests passent
+comme prévues.
+
+\section{Tests d'expressions avancées}
+Nous nous intéressons maintenant à des expressions un peu plus complexes que
+celles offertes dans le code. Voici un exemple de la fonction \texttt{double}
+abordée en Haskell, une fonction d'ordre supérieur en \(\mu\)\texttt{pts}:
+\begin{lstlisting}
+sample(let([double : forall(t, arw(o, (t -> t -> t), (t -> t))) =
+    fun([f, x], f(x, x))], double((/), 5.5))).
+\end{lstlisting}
+Un tel test a permis de développer plus en profondeur les relations
+\texttt{forall2arw} et \texttt{getImpArgs} de sorte à être en mesure de passer
+de tels tests encore plus complexes. À notre surprise, ce test a bien passé, en 
+inférant le type de cette expression à être \texttt{float} tel qu'attendu.
+
+\section{Notes sur la modification du code}
+
+Il n'y a eu aucune de modification au code source fournit à l'exception de
+déplacement de code dans certains cas pouvant être utile pour respecter la
+limite de 80 caractères par ligne.
+
 \end{document}

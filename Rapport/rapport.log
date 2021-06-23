@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.21 (TeX Live 2020/W32TeX) (preloaded format=pdflatex 2021.1.31)  21 JUN 2021 19:20
+This is pdfTeX, Version 3.14159265-2.6-1.40.21 (TeX Live 2020/W32TeX) (preloaded format=pdflatex 2021.1.31)  23 JUN 2021 06:13
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -202,20 +202,20 @@ File: l3backend-pdftex.def 2020-01-29 L3 backend support: PDF output (pdfTeX)
 ) (./rapport.aux)
 \openout1 = `rapport.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 33.
-LaTeX Font Info:    ... okay on input line 33.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 33.
-LaTeX Font Info:    ... okay on input line 33.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 33.
-LaTeX Font Info:    ... okay on input line 33.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 33.
-LaTeX Font Info:    ... okay on input line 33.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 33.
-LaTeX Font Info:    ... okay on input line 33.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 33.
-LaTeX Font Info:    ... okay on input line 33.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 33.
-LaTeX Font Info:    ... okay on input line 33.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 41.
+LaTeX Font Info:    ... okay on input line 41.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 41.
+LaTeX Font Info:    ... okay on input line 41.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 41.
+LaTeX Font Info:    ... okay on input line 41.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 41.
+LaTeX Font Info:    ... okay on input line 41.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 41.
+LaTeX Font Info:    ... okay on input line 41.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 41.
+LaTeX Font Info:    ... okay on input line 41.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 41.
+LaTeX Font Info:    ... okay on input line 41.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -251,14 +251,14 @@ LaTeX Font Info:    ... okay on input line 33.
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-LaTeX Info: Redefining \microtypecontext on input line 33.
+LaTeX Info: Redefining \microtypecontext on input line 41.
 Package microtype Info: Generating PDF output.
 Package microtype Info: Character protrusion enabled (level 2).
 Package microtype Info: Using default protrusion set `alltext'.
 Package microtype Info: Automatic font expansion enabled (level 2),
 (microtype)             stretch: 20, shrink: 20, step: 1, non-selected.
 Package microtype Info: Using default expansion set `alltext-nott'.
-LaTeX Info: Redefining \showhyphens on input line 33.
+LaTeX Info: Redefining \showhyphens on input line 41.
 Package microtype Info: No adjustment of tracking.
 Package microtype Info: No adjustment of interword spacing.
 Package microtype Info: No adjustment of character kerning.
@@ -283,7 +283,7 @@ mkii
 \makeMPintoPDFobject=\count283
 \everyMPtoPDFconversion=\toks26
 )
-LaTeX Font Info:    Trying to load font information for U+msa on input line 39.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 47.
 
  (c:/Program Files (x86)/texlive/2020/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
@@ -291,7 +291,7 @@ File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 (c:/Program Files (x86)/texlive/2020/texmf-dist/tex/latex/microtype/mt-msa.cfg
 File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 39.
+LaTeX Font Info:    Trying to load font information for U+msb on input line 47.
 
 (c:/Program Files (x86)/texlive/2020/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
@@ -306,27 +306,38 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `cmtt' (encoding: OT1).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
- [2] [3] (./rapport.aux) ) 
+ [2]
+Underfull \hbox (badness 10000) in paragraph at lines 142--150
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 151--155
+
+ []
+
+[3] [4] [5] [6] (./rapport.aux) ) 
 Here is how much of TeX's memory you used:
- 6361 strings out of 479304
- 92408 string characters out of 5861285
- 626799 words of memory out of 5000000
- 23448 multiletter control sequences out of 15000+600000
- 414466 words of font info for 96 fonts, out of 8000000 for 9000
+ 6509 strings out of 479304
+ 93783 string characters out of 5861285
+ 713491 words of memory out of 5000000
+ 23577 multiletter control sequences out of 15000+600000
+ 415243 words of font info for 107 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 68i,6n,74p,225b,1184s stack positions out of 5000i,500n,10000p,200000b,80000s
-<c:/Program Files (x86)/texlive/2020/texmf-dist/fonts
-/type1/public/amsfonts/cm/cmbx12.pfb><c:/Program Files (x86)/texlive/2020/texmf
--dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb><c:/Program Files (x86)/texlive
-/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb><c:/Program Files (x8
-6)/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb><c:/Progra
-m Files (x86)/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb
-><c:/Program Files (x86)/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm
-/cmtt12.pfb>
-Output written on rapport.pdf (3 pages, 71880 bytes).
+ 68i,6n,74p,225b,1664s stack positions out of 5000i,500n,10000p,200000b,80000s
+<c:/Program Files (x86)/texlive/2020/texmf-dis
+t/fonts/type1/public/amsfonts/cm/cmbx12.pfb><c:/Program Files (x86)/texlive/202
+0/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb><c:/Program Files (x86)/
+texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb><c:/Program Fi
+les (x86)/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb><c:/P
+rogram Files (x86)/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy1
+0.pfb><c:/Program Files (x86)/texlive/2020/texmf-dist/fonts/type1/public/amsfon
+ts/cm/cmtt10.pfb><c:/Program Files (x86)/texlive/2020/texmf-dist/fonts/type1/pu
+blic/amsfonts/cm/cmtt12.pfb>
+Output written on rapport.pdf (6 pages, 93782 bytes).
 PDF statistics:
- 38 PDF objects out of 1000 (max. 8388607)
- 26 compressed objects within 1 object stream
+ 51 PDF objects out of 1000 (max. 8388607)
+ 35 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
- 25601 words of extra memory for PDF output out of 29859 (max. 10000000)
+ 26625 words of extra memory for PDF output out of 29859 (max. 10000000)
 
