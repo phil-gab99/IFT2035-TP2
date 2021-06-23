@@ -201,25 +201,31 @@ verify1(Env, let(X, T, E1, E2), Tret) :-
 %% Remplace un élement de sucre syntaxique dans Ei, donnant Eo.
 %% Ne renvoie jamais un Eo égal à Ei.
 expand(MV, _) :- var(MV), !, fail.
+
+% Expansion - arw
 expand(T1 -> T2, arw(X, T1, T2)) :- genatom('dummy_', X).
+
+% Expansion - forall
 expand(forall(X, B), F) :-
     (X = [T | TS], TS \= [] ->
             F = forall(T, _, forall(TS, B));
             (X = [A] ->
                 F = forall(A, _, B);
                 F = forall(X, _, B))).
+
+% Expansion - let
 expand(let([D = V | DS], B), LX) :-
     (D = (X : T) ->
-        (T =.. [forall | _] ->
+        (T =.. [forall, PS | _] ->
             (functor(X, X, 0) ->
                 (DS = [] ->
-                    LX = let(X, T, fun(_, V), B);
-                    LX = let(X, T, fun(_, V), let(DS, B)));
+                    LX = let(X, T, fun(PS, V), B);
+                    LX = let(X, T, fun(PS, V), let(DS, B)));
                 X =.. [N | AS],
                 convertFun(AS, V, F),
                 (DS = [] ->
-                    LX = let(N, T, fun(_, F), B);
-                    LX = let(N, T, fun(_, F), let(DS, B))));
+                    LX = let(N, T, fun(PS, F), B);
+                    LX = let(N, T, fun(PS, F), let(DS, B))));
             (functor(X, X, 0) ->
                 (DS = [] ->
                     LX = let(X, T, V, B);
@@ -238,6 +244,12 @@ expand(let([D = V | DS], B), LX) :-
             (DS = [] ->
                 LX = let(N, F, B);
                 LX = let(N, F, let(DS,B))))).
+
+% Expansion - fun
+expand(fun([], V), V).
+expand(fun([A | AS], V), fun(A, fun(AS, V))).
+
+% Expansion - app
 expand(Fa, app(Fb, AL)) :-
     Fa =.. [N | AS],
     \+ member(N, [fun, app, arw, forall, (->), (:), let, [], (.)]),
@@ -249,6 +261,8 @@ expand(Fa, app(Fb, AL)) :-
     Fb =.. [N | AI].
 
 %% convertFun(+AS, +V, -F)
+%% Utilisé pour convertir le sucre syntaxique dans les déclarations d'un let en
+%% la fonction appropriée
 convertFun([], V, V).
 convertFun([A | AS], V, F) :-
     convertFun(AS, V, B),
@@ -277,15 +291,9 @@ coerce(_, E1, int, bool, app(int_to_bool, E1)).
 %% infer(+Env, +Ei, -Eo, -T)
 %% Élabore Ei (dans un contexte Env) en Eo et infère son type T.
 infer(_, MV, MV, _) :- var(MV), !.            % Une expression encore inconnue.
-
 infer(Env, Ei, Eo, T) :- expand(Ei, Ei1), infer(Env, Ei1, Eo, T).
 infer(_, X, X, int) :- integer(X).
 infer(_, X, X, float) :- float(X).
-
-% Règle 9
-infer(Env, (Ei : T), Eo, T1) :-
-    check(Env, T, type, T1),
-    check(Env, Ei, T1, Eo).
 
 % Règle 1
 infer(Env, X, X, T) :-
@@ -325,6 +333,11 @@ infer(Env, let(X, E2a, E3a), let(X, E1, E2b, E3b), E4) :-
     infer([X : E1 | Env], E2a, E2b, E1),
     infer([X : E1 | Env], E3a, E3b, E4).
 
+% Règle 9
+infer(Env, (Ei : T), Eo, T1) :-
+    check(Env, T, type, T1),
+    check(Env, Ei, T1, Eo).
+
 % Règle 12
 infer(Env, E1a, Eo, float) :-
     (infer(Env, E1a, E1b, int) ->
@@ -339,16 +352,16 @@ infer(Env, E1a, Eo, bool) :-
 infer(Env, E1, Eo, E3b) :-
     (member(E1 : forall(X, E2, E3a), Env) ->
         forallRec(Env, E1, forall(X, E2, E3a), Eo, E3b)).
-        % E3a =.. forall(_, _, B) -> infer(Env, E1, Eo, )
-        % subst(Env, X, _, E3a, E3b),
-        % % write(E1 +" is of type "+ forall(X, E2, E3a)),
-        % coerce(Env, E1, forall(X, E2, E3a), E3b, Eo)).
 
+%% forallRec(+Env, +E1, +forall(+X, +E2, +E3a), -Eo, -E3b)
+%% Utilisé pour appliquer la coercion du forall pour une expression E1 de type
+%% forall(X, E2, E3a), dont le type après coercion est E3b et l'expansion
+%% appropriée est Eo.
+%% Traite également des forall curifiés
 forallRec(Env, E1, forall(X, E2, E3a), Eo, E3b) :-
     (E3a = forall(Xi, E2i, E3ai) ->
         forallRec(Env, E1, forall(X, E2, E3ai), Eoi, E3bi),
         forallRec(Env, Eoi, forall(Xi, E2i, E3bi), Eo, E3b);
-        % write(Eo);
         subst(Env, X, _, E3a, E3b),
         coerce(Env, E1, forall(X, E2, E3a), E3b, Eo)).
 
@@ -362,9 +375,7 @@ check(_Env, MV, _, Eo) :-
     %% de toute façon, et pour les cas restants on se repose sur le filet de
     %% sécurité qu'est `verify`.
     var(MV), !, Eo = MV.
-check(Env, Ei, T, Eo) :-
-    expand(Ei, Ei1),
-    check(Env, Ei1, T, Eo).
+check(Env, Ei, T, Eo) :- expand(Ei, Ei1), check(Env, Ei1, T, Eo).
 
 % Règle 3
 check(Env, fun(X, E2a), arw(_, E1, E3), fun(X, E1, E2b)) :-
@@ -413,19 +424,14 @@ initenv(Env) :-
          nil :  forall(t, list(t, 0)),
          cons : forall([t,n],(t -> list(t, n) -> list(t, n + 1)))],
         Env).
-% infer([type : type,int : type,float : type,bool : type,int_to_float : arw(dummy_16, int, float),int_to_bool : arw(dummy_17, int, bool),list : arw(dummy_18, type, arw(dummy_19, int, type)),(+) : arw(dummy_1, int, arw(dummy_2, int, int)),(-) : arw(dummy_3, int, arw(dummy_4, int, int)),(*) : arw(dummy_5, int, arw(dummy_6, int, int)),(/) : arw(dummy_7, float, arw(dummy_8, float, float)),(<) : arw(dummy_9, float, arw(dummy_10, float, int)),if : forall(t, type, arw(dummy_11, bool, arw(dummy_12, t, arw(dummy_13, t, t)))),nil : forall(t, type, app(app(list, t), 0)),cons : forall(t, type, (forall(n, int, arw(dummy_14, t, arw(dummy_15, app(app(list,t), n), app(app(list,t), app(app(+, n), 1)))))))], cons(13, nil), E, T).
-
-% check([type : type,int : type,float : type,bool : type,int_to_float : arw(dummy_16, int, float),int_to_bool : arw(dummy_17, int, bool),list : arw(dummy_18, type, arw(dummy_19, int, type)),(+) : arw(dummy_1, int, arw(dummy_2, int, int)),(-) : arw(dummy_3, int, arw(dummy_4, int, int)),(*) : arw(dummy_5, int, arw(dummy_6, int, int)),(/) : arw(dummy_7, float, arw(dummy_8, float, float)),(<) : arw(dummy_9, float, arw(dummy_10, float, int)),if : forall(t, type, arw(dummy_11, bool, arw(dummy_12, t, arw(dummy_13, t, t)))),nil : forall(t, type, app(app(list, t), 0)),cons : forall(t, type, (forall(n, int, arw(dummy_14, t, arw(dummy_15, app(app(list,t), n), app(app(list,t), app(app(+, n), 1)))))))], nil, forall(t, type, app(app(list, t), 0)), X).
 
 %% Quelques expressions pour nos tests.
-% sample(1 + 2).
-% sample(1 / 2).
-% sample(let([identity : (forall(t, (t -> t))) = fun(x,x)], identity(3))).
-% sample(if(1 < 2, 1, 2)).
-% sample(cons(13,nil)).
-% sample(cons(1.0, cons(2.0, nil))).
-% sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],fact(44))).
-% sample(let([fact(n) : (int -> int) = if(n < 2, 1, n * fact(n - 1))],fact(45))).
+sample(1 + 2).
+sample(1 / 2).
+sample(cons(13,nil)).
+sample(cons(1.0, cons(2.0, nil))).
+sample(let([fact(n:int) = if(n < 2, 1, n * fact(n - 1))],fact(44))).
+sample(let([fact(n) : (int -> int) = if(n < 2, 1, n * fact(n - 1))],fact(45))).
 sample(let( % Test fails here
     [list1 : forall(a, (a -> list(a, 1))) = fun(x, cons(x, nil))],list1(42))).
 sample(let(
